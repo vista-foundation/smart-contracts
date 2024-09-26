@@ -1,0 +1,15 @@
+{
+  "name": "permissionedmint",
+  "version": "1.0.0",
+  "description": "Write validators in the `validators` folder, and supporting functions in the `lib` folder using `.ak` as a file extension.",
+  "main": "example_usage.js",
+  "type": "module",
+  "scripts": {
+    "run": "tsx example_usage.ts",
+    "test": "node example_usage.js"
+  },
+  "dependencies": {
+    "@blaze-cardano/sdk": "^0.0.43",
+    "tsx": "^4.17.0"
+  }
+}
