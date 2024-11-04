@@ -9,7 +9,7 @@ const token_name: string = "Rug Me Daddy";
 const token_description: string = "Sometimes you just want Daddy to rug you!";
 const token_ticker: string = "RUGME";
 const token_logo: string = "ipfs://QmfTsmWsf99YRXRC4GSqa6H7FHXNVAkL13YTcRK1SQAtnt";
-const fungible_quantity: bigint = 10n;
+const fungible_quantity: bigint = -10n;
 const token_decimals: bigint | undefined = undefined;
 const token_image: string | undefined = undefined;
 /** CONFIG END **/
@@ -35,7 +35,7 @@ import {
     TransactionId,
     toHex,
     fromHex,
-    addressFromValidator
+    addressFromValidator,
 } from "@blaze-cardano/core";
 import {
     Blockfrost,
@@ -101,52 +101,23 @@ console.log(address.toBech32());
 const policy = new PermissionedMintMint({Inline: [{VerificationKeyCredential: [cred!.hash]}]}, true)
 const policyId = policy.hash()
 const flabel = toLabel(333)
-const rlabel = toLabel(100)
 
 const tokenMap = new Map<AssetId, bigint>();
-const rtokenMap = new Map<AssetId, bigint>();
 const encoder = new TextEncoder();
 const uint8name = encoder.encode(name);
 const assetId: AssetId = AssetId(policyId.toString() + flabel + toHex(uint8name))
-const refAssetId: AssetId = AssetId(policyId.toString() + rlabel + toHex(uint8name))
 
 tokenMap.set(assetId, fungible_quantity);
-rtokenMap.set(refAssetId, 1n)
 
 const mintMap = new Map<AssetName, bigint>();
 mintMap.set(AssetName(flabel + toHex(uint8name)), fungible_quantity);
-mintMap.set(AssetName(rlabel + toHex(uint8name)), 1n);
 
-const metadata = new PlutusList();
-const metaMap = new PlutusMap();
-
-metaMap.insert(PlutusData.newBytes(encoder.encode("name")), PlutusData.newBytes(encoder.encode(token_name)));
-metaMap.insert(PlutusData.newBytes(encoder.encode("description")), PlutusData.newBytes(encoder.encode(token_description)));
-metaMap.insert(PlutusData.newBytes(encoder.encode("ticker")), PlutusData.newBytes(encoder.encode(token_ticker)));
-metaMap.insert(PlutusData.newBytes(encoder.encode("logo")), PlutusData.newBytes(encoder.encode(token_logo)));
-
-if (token_decimals !== undefined) {
-    metaMap.insert(PlutusData.newBytes(encoder.encode("decimals")), PlutusData.newInteger(token_decimals));
-}
-
-if (token_image !== undefined) {
-    metaMap.insert(PlutusData.newBytes(encoder.encode('image')), PlutusData.newBytes(encoder.encode(token_image)));
-}
-
-metadata.add(PlutusData.newMap(metaMap));
-metadata.add(PlutusData.newInteger(1n))
-
-
-const lockerAddress = addressFromValidator(onMainnet ? 1 : 0, policy);
-console.log(lockerAddress.toBech32());
 let tx;
 try {
 // Assumes that the wallet contains at least 5 ADA + tx fees.
     tx = await blaze
         .newTransaction()
-        .lockAssets(lockerAddress, new Value(5_000_000n, rtokenMap), PlutusData.newConstrPlutusData(new ConstrPlutusData(0n, metadata)))
-        .payAssets(address, new Value(5_000_000n, tokenMap))
-        .addMint(PolicyId(policyId), mintMap, Data.to("Minting", PermissionedMintMint.rdmr))
+        .addMint(PolicyId(policyId), mintMap, Data.to("Burning", PermissionedMintMint.rdmr))
         .addRequiredSigner(Ed25519KeyHashHex(cred!.hash))
         .provideScript(policy)
         .complete();

@@ -58,7 +58,7 @@ test ensure_no_policy_minted_2() {
   ensure_no_policy_minted(minted, "policy")
 }
 
-validator(permissioned_credential: StakeCredential) {
+validator(permissioned_credential: StakeCredential, require_for_burn: Bool) {
   fn mint(rdmr: MintRedeemer, ctx: ScriptContext) {
     // Get required information for script context.
     expect ScriptContext(
@@ -71,7 +71,7 @@ validator(permissioned_credential: StakeCredential) {
         staking_credential_approves(permissioned_credential, wtdr, sigs)
       Burning ->
         // Ensure that our policy is only burnt, not minted.
-        ensure_no_policy_minted(minted_to_dict(mint), policy_id)
+        ensure_no_policy_minted(minted_to_dict(mint), policy_id) && (!require_for_burn || staking_credential_approves(permissioned_credential, wtdr, sigs))
     }
   }
 

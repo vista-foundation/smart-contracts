@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "run": "tsx example_usage.ts",
+    "burn": "tsx example_burn.ts",
     "test": "node example_usage.js"
   },
   "dependencies": {
