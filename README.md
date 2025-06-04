@@ -11,8 +11,6 @@ The smart contracts hosted in this repository are design to be used and serve as
 
 1. [Permissioned Minting](./minting/permissioned-mint)
     * Current Version: 1.0
-    * This contract allows a specific wallet (permissioned credential) to
-      control (via key signature) when new tokens may be minted under its
-      policy.
-    * This contract always allows holders to burn their tokens without requiring
-      permissions
+    * This contract allows a specific wallet (permissioned credential) to control (via key signature) when new tokens may be minted under its policy.
+    * 🔒 Built with [CIP-68 Metadata](https://cips.cardano.org/cips/cip68/) for enhanced interoperability.
+    * 🛡️ **Audit Report**: [Download PDF](https://drive.google.com/file/d/1CEayqKyGgNc-s7To6HwfXTnvCCIvX7Ta/view)
