@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custodial Transfer Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .party-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .party-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .sender { border-left: 4px solid #007bff; }
+        .receiver { border-left: 4px solid #28a745; }
+        .custodian { border-left: 4px solid #ffc107; }
+        
+        .action-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
+        }
+        
+        .action-button:hover {
+            background-color: #0056b3;
+        }
+        
+        .action-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .sender .action-button { background-color: #007bff; }
+        .receiver .action-button { background-color: #28a745; }
+        .custodian .action-button { background-color: #ffc107; color: #212529; }
+        
+        .status {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .log-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .log {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .input-group {
+            margin: 10px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Custodial Transfer Smart Contract Demo</h1>
+    
+    <div class="container">
+        <!-- Sender (Party A) -->
+        <div class="party-section sender">
+            <div class="party-header">👤 Sender (Party A)</div>
+            <div class="status" id="sender-status">Ready to create contract</div>
+            
+            <div class="input-group">
+                <label for="deposit-amount">Amount to Deposit (ADA):</label>
+                <input type="number" id="deposit-amount" value="10" min="1" step="0.1">
+            </div>
+            
+            <button class="action-button" id="deposit-btn" onclick="depositFunds()">
+                💰 Deposit Funds (Lock)
+            </button>
+            
+            <button class="action-button" id="withdraw-btn" onclick="withdrawFunds()" disabled>
+                ⬆️ Withdraw Funds (Before Delivery)
+            </button>
+            
+            <div class="status" id="sender-wallet">Wallet: Loading...</div>
+        </div>
+        
+        <!-- Receiver (Party B) -->
+        <div class="party-section receiver">
+            <div class="party-header">📦 Receiver (Party B)</div>
+            <div class="status" id="receiver-status">Waiting for contract...</div>
+            
+            <button class="action-button" id="deliver-btn" onclick="deliverToPartyC()" disabled>
+                🚚 Deliver to Party C
+            </button>
+            
+            <button class="action-button" id="return-btn" onclick="returnToSender()" disabled>
+                ↩️ Return to Sender
+            </button>
+            
+            <div class="status" id="receiver-wallet">Wallet: Loading...</div>
+        </div>
+        
+        <!-- Custodian (Party C) -->
+        <div class="party-section custodian">
+            <div class="party-header">🏛️ Custodian (Party C)</div>
+            <div class="status" id="custodian-status">Waiting for delivery...</div>
+            
+            <div class="status" id="custodian-wallet">Wallet: Loading...</div>
+        </div>
+    </div>
+    
+    <!-- Transaction Log -->
+    <div class="log-section">
+        <h3>Transaction Log</h3>
+        <div class="log" id="transaction-log"></div>
+        <button class="action-button" onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <script type="module" src="./main.ts"></script>
+</body>
+</html> 

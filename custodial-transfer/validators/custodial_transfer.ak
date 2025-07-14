@@ -26,20 +26,25 @@ validator custodial_transfer {
     own_ref: OutputReference,
     transaction: Transaction,
   ) {
+    trace @"custodial_transfer validator called"
     // Extract datum - fail if None
     expect Some(datum) = datum
+    trace @"datum extracted": datum
     let inputs = transaction.inputs
     let outputs = transaction.outputs
     let extra_signatories = transaction.extra_signatories
+    trace @"transaction info": inputs, outputs, extra_signatories
     // Find own input
     expect Some(own_input) =
       list.find(inputs, fn(i: Input) { i.output_reference == own_ref })
     let own_address = own_input.output.address
     let own_value = own_input.output.value
+    trace @"own_input found": own_address, own_value
     expect Script(_own_validator_hash) = own_address.payment_credential
     // Branch to handlers
     when redeemer is {
-      Withdraw ->
+      Withdraw -> {
+        trace @"handling Withdraw redeemer"
         handle_withdraw(
           datum,
           outputs,
@@ -47,7 +52,9 @@ validator custodial_transfer {
           own_address,
           own_value,
         )
-      Deliver ->
+      }
+      Deliver -> {
+        trace @"handling Deliver redeemer"
         handle_deliver(
           datum,
           outputs,
@@ -55,12 +62,16 @@ validator custodial_transfer {
           own_address,
           own_value,
         )
-      Return ->
+      }
+      Return -> {
+        trace @"handling Return redeemer"
         handle_return(datum, outputs, extra_signatories, own_address, own_value)
+      }
     }
   }
 
   else(_) {
+    trace @"custodial_transfer validator called with non-spend purpose"
     fail
   }
 }
@@ -71,14 +82,21 @@ fn find_output_to_pkh_with_value(
   pkh: VerificationKeyHash,
   expected_value: Value,
 ) -> Bool {
-  list.any(
-    outputs,
-    fn(out: Output) {
-      let addr = out.address
-      expect VerificationKey(output_pkh) = addr.payment_credential
-      output_pkh == pkh && out.value == expected_value
-    },
-  )
+  trace @"searching for output": pkh, expected_value
+  let result =
+    list.any(
+      outputs,
+      fn(out: Output) {
+        let addr = out.address
+        expect VerificationKey(output_pkh) = addr.payment_credential
+        let pkh_matches = output_pkh == pkh
+        let value_matches = out.value == expected_value
+        trace @"checking output": output_pkh, out.value, pkh_matches, value_matches
+        pkh_matches && value_matches
+      },
+    )
+  trace @"output search result": result
+  result
 }
 
 // Withdraw Handler
@@ -89,12 +107,27 @@ fn handle_withdraw(
   own_address: Address,
   own_value: Value,
 ) -> Bool {
+  trace @"handle_withdraw called": datum.sender, own_value
+  trace @"all signatories": signatories
+  trace @"looking for sender": datum.sender
   // Pre: Signed by sender
-  list.has(signatories, datum.sender) && // Post: Entire UTXO value paid to sender, no continuing output
-  find_output_to_pkh_with_value(outputs, datum.sender, own_value) && !list.any(
-    outputs,
-    fn(o) { o.address == own_address },
+  let sender_signed = list.has(signatories, datum.sender)
+  trace @"sender signature check": sender_signed
+  // Debug: Check sender individually
+  trace @"sender in signatories": list.any(
+    signatories,
+    fn(s) { s == datum.sender },
   )
+  // Post: Entire UTXO value paid to sender, no continuing output
+  let correct_payment =
+    find_output_to_pkh_with_value(outputs, datum.sender, own_value)
+  trace @"correct payment to sender": correct_payment
+  let no_continuing_output =
+    !list.any(outputs, fn(o) { o.address == own_address })
+  trace @"no continuing output": no_continuing_output
+  let result = sender_signed && correct_payment && no_continuing_output
+  trace @"withdraw result": result
+  result
 }
 
 // Deliver Handler
@@ -105,15 +138,34 @@ fn handle_deliver(
   own_address: Address,
   own_value: Value,
 ) -> Bool {
+  trace @"handle_deliver called": datum.receiver, datum.custodian, own_value
+  trace @"all signatories": signatories
+  trace @"looking for receiver": datum.receiver
+  trace @"looking for custodian": datum.custodian
   // Pre: Signed by receiver and custodian
-  list.has(signatories, datum.receiver) && list.has(
+  let receiver_signed = list.has(signatories, datum.receiver)
+  let custodian_signed = list.has(signatories, datum.custodian)
+  trace @"signature checks": receiver_signed, custodian_signed
+  // Debug: Check each signatory individually
+  trace @"receiver in signatories": list.any(
     signatories,
-    datum.custodian,
-  ) && // Post: Entire UTXO value paid to receiver, no continuing output (contract ends)
-  find_output_to_pkh_with_value(outputs, datum.receiver, own_value) && !list.any(
-    outputs,
-    fn(o) { o.address == own_address },
+    fn(s) { s == datum.receiver },
   )
+  trace @"custodian in signatories": list.any(
+    signatories,
+    fn(s) { s == datum.custodian },
+  )
+  // Post: Entire UTXO value paid to receiver, no continuing output (contract ends)
+  let correct_payment =
+    find_output_to_pkh_with_value(outputs, datum.receiver, own_value)
+  trace @"correct payment to receiver": correct_payment
+  let no_continuing_output =
+    !list.any(outputs, fn(o) { o.address == own_address })
+  trace @"no continuing output": no_continuing_output
+  let result =
+    receiver_signed && custodian_signed && correct_payment && no_continuing_output
+  trace @"deliver result": result
+  result
 }
 
 // Return Handler
@@ -124,12 +176,27 @@ fn handle_return(
   own_address: Address,
   own_value: Value,
 ) -> Bool {
+  trace @"handle_return called": datum.receiver, datum.sender, own_value
+  trace @"all signatories": signatories
+  trace @"looking for receiver": datum.receiver
   // Pre: Signed by receiver
-  list.has(signatories, datum.receiver) && // Post: Entire UTXO value paid to sender, no continuing output (contract ends)
-  find_output_to_pkh_with_value(outputs, datum.sender, own_value) && !list.any(
-    outputs,
-    fn(o) { o.address == own_address },
+  let receiver_signed = list.has(signatories, datum.receiver)
+  trace @"receiver signature check": receiver_signed
+  // Debug: Check receiver individually
+  trace @"receiver in signatories": list.any(
+    signatories,
+    fn(s) { s == datum.receiver },
   )
+  // Post: Entire UTXO value paid to sender, no continuing output (contract ends)
+  let correct_payment =
+    find_output_to_pkh_with_value(outputs, datum.sender, own_value)
+  trace @"correct payment to sender": correct_payment
+  let no_continuing_output =
+    !list.any(outputs, fn(o) { o.address == own_address })
+  trace @"no continuing output": no_continuing_output
+  let result = receiver_signed && correct_payment && no_continuing_output
+  trace @"return result": result
+  result
 }
 
 // Test helper functions and fuzzers
