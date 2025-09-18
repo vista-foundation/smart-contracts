@@ -14,9 +14,10 @@ export const credentials = {
 }
 
 // Hardcoded test passphrases for demo purposes
+// Party mapping per milestone: A=User A (Sender), B=User B (Final Receiver), C=Entity C (Custodian)
 export const SENDER_PASSPHRASE = credentials.PartyA.seed;
 export const RECEIVER_PASSPHRASE = credentials.PartyB.seed;
 export const CUSTODIAN_PASSPHRASE = credentials.PartyC.seed;
-export const CUSTODIAN_ADDRESS = credentials.PartyC.address;
-export const RECEIVER_ADDRESS = credentials.PartyB.address;
 export const SENDER_ADDRESS = credentials.PartyA.address;
+export const RECEIVER_ADDRESS = credentials.PartyB.address;
+export const CUSTODIAN_ADDRESS = credentials.PartyC.address;

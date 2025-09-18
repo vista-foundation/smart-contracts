@@ -16,33 +16,39 @@ console.log('🌐 Setting up global functions immediately...');
     console.log('⬆️ Global withdrawFunds called');
     return demo.withdrawFunds();
 };
-(window as any).deliverToPartyC = () => {
-    console.log('🚚 Global deliverToPartyC called');
-    return demo.deliverToPartyC();
+(window as any).deliverToReceiver = () => {
+    console.log('🚚 Global deliverToReceiver called');
+    return demo.deliverToReceiver();
 };
-(window as any).returnToSender = () => {
-    console.log('↩️ Global returnToSender called');
-    return demo.returnToSender();
+(window as any).refuseDelivery = () => {
+    console.log('❌ Global refuseDelivery called');
+    return demo.refuseDelivery();
 };
 (window as any).clearLog = () => {
     console.log('🧹 Global clearLog called');
     return demo.clearLog();
 };
+(window as any).refreshBalances = () => {
+    console.log('🔄 Global refreshBalances called');
+    return demo.refreshBalances();
+};
 
 // Method 2: globalThis assignment as backup
 (globalThis as any).depositFunds = (window as any).depositFunds;
 (globalThis as any).withdrawFunds = (window as any).withdrawFunds;
-(globalThis as any).deliverToPartyC = (window as any).deliverToPartyC;
-(globalThis as any).returnToSender = (window as any).returnToSender;
+(globalThis as any).deliverToReceiver = (window as any).deliverToReceiver;
+(globalThis as any).refuseDelivery = (window as any).refuseDelivery;
 (globalThis as any).clearLog = (window as any).clearLog;
+(globalThis as any).refreshBalances = (window as any).refreshBalances;
 
 console.log('✅ Global functions setup completed immediately');
 console.log('🔍 Available functions:', {
     depositFunds: typeof (window as any).depositFunds,
     withdrawFunds: typeof (window as any).withdrawFunds,
-    deliverToPartyC: typeof (window as any).deliverToPartyC,
-    returnToSender: typeof (window as any).returnToSender,
-    clearLog: typeof (window as any).clearLog
+    deliverToReceiver: typeof (window as any).deliverToReceiver,
+    refuseDelivery: typeof (window as any).refuseDelivery,
+    clearLog: typeof (window as any).clearLog,
+    refreshBalances: typeof (window as any).refreshBalances
 });
 
 // Initialize when DOM is loaded
@@ -53,9 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🔍 Functions check after DOM load:', {
         depositFunds: typeof (window as any).depositFunds,
         withdrawFunds: typeof (window as any).withdrawFunds,
-        deliverToPartyC: typeof (window as any).deliverToPartyC,
-        returnToSender: typeof (window as any).returnToSender,
-        clearLog: typeof (window as any).clearLog
+        deliverToReceiver: typeof (window as any).deliverToReceiver,
+        refuseDelivery: typeof (window as any).refuseDelivery,
+        clearLog: typeof (window as any).clearLog,
+        refreshBalances: typeof (window as any).refreshBalances
     });
 
     demo.initialize();

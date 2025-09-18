@@ -44,9 +44,9 @@ export class CustodialTransferDemo {
     async initialize() {
         console.log('🚀 Starting CustodialTransferDemo initialization...');
         console.log('📋 Credentials loaded:', {
-            PartyA: credentials.PartyA.address,
-            PartyB: credentials.PartyB.address,
-            PartyC: credentials.PartyC.address
+            'PartyA (User A / Sender)': credentials.PartyA.address,
+            'PartyB (User B / Final Receiver)': credentials.PartyB.address,
+            'PartyC (Entity C / Custodian)': credentials.PartyC.address
         });
 
         try {
@@ -132,8 +132,8 @@ export class CustodialTransferDemo {
             this.state.senderKeyHash = CML.Address.from_bech32(senderAddress!).payment_cred()?.as_pub_key()?.to_hex();
             console.log('🔐 Sender key hash:', this.state.senderKeyHash);
 
-            // Setup receiver wallet
-            console.log('📦 Setting up receiver wallet (Party B)...');
+            // Setup receiver wallet (Party B - User B)
+            console.log('📦 Setting up receiver wallet (Party B - User B)...');
             console.log('🔑 Receiver seed phrase length:', RECEIVER_PASSPHRASE.split(' ').length);
             this.lucid?.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
             console.log('✅ Receiver wallet selected');
@@ -145,8 +145,8 @@ export class CustodialTransferDemo {
             this.state.receiverKeyHash = CML.Address.from_bech32(receiverAddress!).payment_cred()?.as_pub_key()?.to_hex();
             console.log('🔐 Receiver key hash:', this.state.receiverKeyHash);
 
-            // Setup custodian wallet
-            console.log('🏛️ Setting up custodian wallet (Party C)...');
+            // Setup custodian wallet (Party C - Entity C)
+            console.log('🏛️ Setting up custodian wallet (Party C - Entity C)...');
             console.log('🔑 Custodian seed phrase length:', CUSTODIAN_PASSPHRASE.split(' ').length);
             this.lucid?.selectWallet.fromSeed(CUSTODIAN_PASSPHRASE);
             console.log('✅ Custodian wallet selected');
@@ -333,6 +333,7 @@ export class CustodialTransferDemo {
             // Switch to sender wallet
             this.lucid.selectWallet.fromSeed(SENDER_PASSPHRASE);
             console.log('👤 Switched to sender wallet');
+            this.showSigningStatus('sender', 'deposit');
 
             // Generate contract address from validator if not already generated
             if (!this.state.contractAddress) {
@@ -411,17 +412,19 @@ export class CustodialTransferDemo {
         const depositBtn = document.getElementById('deposit-btn') as HTMLButtonElement;
         const withdrawBtn = document.getElementById('withdraw-btn') as HTMLButtonElement;
         const deliverBtn = document.getElementById('deliver-btn') as HTMLButtonElement;
-        const returnBtn = document.getElementById('return-btn') as HTMLButtonElement;
+        const refuseBtn = document.getElementById('refuse-btn') as HTMLButtonElement;
         const senderStatus = document.getElementById('sender-status');
+        const custodianStatus = document.getElementById('custodian-status');
         const receiverStatus = document.getElementById('receiver-status');
 
         if (depositBtn) depositBtn.disabled = true;
         if (withdrawBtn) withdrawBtn.disabled = false;
         if (deliverBtn) deliverBtn.disabled = false;
-        if (returnBtn) returnBtn.disabled = false;
+        if (refuseBtn) refuseBtn.disabled = false;
 
         if (senderStatus) senderStatus.textContent = `Contract created with ${Number(this.state.amount) / 1000000} ADA`;
-        if (receiverStatus) receiverStatus.textContent = 'Contract available - choose action';
+        if (receiverStatus) receiverStatus.textContent = 'Contract available - can refuse delivery';
+        if (custodianStatus) custodianStatus.textContent = 'Contract available - can facilitate delivery';
 
         console.log('✅ Deposit UI updated');
     }
@@ -442,6 +445,7 @@ export class CustodialTransferDemo {
             // Switch to sender wallet
             this.lucid.selectWallet.fromSeed(SENDER_PASSPHRASE);
             console.log('👤 Switched to sender wallet for withdrawal');
+            this.showSigningStatus('sender', 'withdrawal');
 
             // Ensure we have a contract address
             if (!this.state.contractAddress) {
@@ -528,24 +532,26 @@ export class CustodialTransferDemo {
         console.log('🔄 Updating withdrawal UI...');
         const withdrawBtn = document.getElementById('withdraw-btn') as HTMLButtonElement;
         const deliverBtn = document.getElementById('deliver-btn') as HTMLButtonElement;
-        const returnBtn = document.getElementById('return-btn') as HTMLButtonElement;
+        const refuseBtn = document.getElementById('refuse-btn') as HTMLButtonElement;
         const senderStatus = document.getElementById('sender-status');
+        const custodianStatus = document.getElementById('custodian-status');
         const receiverStatus = document.getElementById('receiver-status');
 
         if (withdrawBtn) withdrawBtn.disabled = true;
         if (deliverBtn) deliverBtn.disabled = true;
-        if (returnBtn) returnBtn.disabled = true;
+        if (refuseBtn) refuseBtn.disabled = true;
 
         if (senderStatus) senderStatus.textContent = 'Funds withdrawn - contract completed';
-        if (receiverStatus) receiverStatus.textContent = 'Contract completed by sender withdrawal';
+        if (receiverStatus) receiverStatus.textContent = 'Contract completed - sender withdrew';
+        if (custodianStatus) custodianStatus.textContent = 'Contract completed - sender withdrew';
 
         console.log('✅ Withdrawal UI updated');
     }
 
-    async deliverToPartyC() {
+    async deliverToReceiver() {
         console.log('🚚 Starting delivery transaction...');
         try {
-            this.log('🚚 Delivering to Party C (custodian)...');
+            this.log('🚚 Entity C (Custodian) confirming delivery to User B...');
 
             if (!this.lucid || !this.validator) {
                 console.log('🎭 Using demo mode for delivery...');
@@ -555,9 +561,9 @@ export class CustodialTransferDemo {
             }
 
             console.log('🔗 Using real blockchain for delivery...');
-            // Switch to receiver wallet
-            this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
-            console.log('📦 Switched to receiver wallet');
+            // Switch to custodian wallet (Entity C confirms delivery)
+            this.lucid.selectWallet.fromSeed(CUSTODIAN_PASSPHRASE);
+            console.log('🏛️ Switched to custodian wallet for delivery confirmation');
 
             // Ensure we have a contract address
             if (!this.state.contractAddress) {
@@ -597,7 +603,7 @@ export class CustodialTransferDemo {
             console.log('✅ Found correct UTxO:', { txHash: contractUtxo.txHash, outputIndex: contractUtxo.outputIndex });
 
             // Create redeemer for delivery (constructor index 1, no fields)
-            const { Data, Constr, Lucid, Blockfrost, makeTxSignBuilder } = await loadLucidModule();
+            const { Data, Constr } = await loadLucidModule();
             const redeemer = Data.to(new Constr(1, []));
 
             // Debug: Print key hashes to identify which one is missing
@@ -614,41 +620,24 @@ export class CustodialTransferDemo {
             console.log('💰 Contract UTxO value:', contractValue);
             console.log('💰 Original deposit amount:', this.state.amount);
 
-            this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
-            // Make sure receiver wallet is selected when adding receiver as signer
+            // Custodian wallet already selected above for transaction building
+            // Only custodian signs to confirm delivery (Entity C confirms delivery to User B)
             const tx = await this.lucid
                 .newTx()
                 .collectFrom([contractUtxo], redeemer)
                 .pay.ToAddress(RECEIVER_ADDRESS, { lovelace: contractValue })
                 .attach.SpendingValidator(this.validator)
-                .addSignerKey(this.state.receiverKeyHash!)
                 .addSignerKey(this.state.custodianKeyHash!)
                 .complete();
             
             console.log('✍️ Signing transaction...');
             
-            // Alternative approach: Build the transaction separately for each signer
-            // Switch to receiver wallet and sign
-            // this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
-            console.log('✍️ Signing with receiver wallet...');
-            const receiverSigned = await tx.partialSign.withWallet();
+            // Only custodian needs to sign to confirm delivery
+            this.showSigningStatus('custodian', 'delivery');
+            console.log('✍️ Custodian signing delivery confirmation...');
+            const finalTx = await tx.sign.withWallet().complete();
             
-            // Switch to custodian wallet and sign
-            const lucidCustod = await Lucid(
-                new Blockfrost(ENV.BLOCKFROST_URL, ENV.BLOCKFROST_KEY),
-                ENV.CARDANO_NETWORK as any
-            );
-            lucidCustod.selectWallet.fromSeed(CUSTODIAN_PASSPHRASE);
-
-            const txCopy = makeTxSignBuilder(lucidCustod.wallet(), tx.toTransaction());
-            const custodianSigned = await txCopy.partialSign.withWallet();
-
-            console.log('✍️ Signing with custodian wallet...');
-            
-            // Assemble the signatures
-            const finalTx = await tx.assemble([receiverSigned, custodianSigned]).complete();
-            
-            console.log('✅ Transaction signed with both wallets');
+            console.log('✅ Transaction signed by custodian');
             console.log('📤 Submitting transaction...');
             const txHash = await finalTx.submit();
             console.log('✅ Delivery transaction submitted:', txHash);
@@ -672,24 +661,24 @@ export class CustodialTransferDemo {
         console.log('🔄 Updating delivery UI...');
         const withdrawBtn = document.getElementById('withdraw-btn') as HTMLButtonElement;
         const deliverBtn = document.getElementById('deliver-btn') as HTMLButtonElement;
-        const returnBtn = document.getElementById('return-btn') as HTMLButtonElement;
+        const refuseBtn = document.getElementById('refuse-btn') as HTMLButtonElement;
         const receiverStatus = document.getElementById('receiver-status');
         const custodianStatus = document.getElementById('custodian-status');
 
         if (withdrawBtn) withdrawBtn.disabled = true;
         if (deliverBtn) deliverBtn.disabled = true;
-        if (returnBtn) returnBtn.disabled = true;
+        if (refuseBtn) refuseBtn.disabled = true;
 
-        if (receiverStatus) receiverStatus.textContent = `Successfully delivered - received ${Number(this.state.amount) / 1000000} ADA`;
-        if (custodianStatus) custodianStatus.textContent = 'Authorized delivery to receiver';
+        if (receiverStatus) receiverStatus.textContent = `Delivery accepted - received ${Number(this.state.amount) / 1000000} ADA`;
+        if (custodianStatus) custodianStatus.textContent = `Successfully facilitated delivery`;
 
         console.log('✅ Delivery UI updated');
     }
 
-    async returnToSender() {
-        console.log('↩️ Starting return transaction...');
+    async refuseDelivery() {
+        console.log('❌ Starting refuse delivery transaction...');
         try {
-            this.log('↩️ Returning to sender...');
+            this.log('❌ User B refusing delivery and returning to sender...');
 
             if (!this.lucid || !this.validator) {
                 console.log('🎭 Using demo mode for return...');
@@ -699,9 +688,10 @@ export class CustodialTransferDemo {
             }
 
             console.log('🔗 Using real blockchain for return...');
-            // Switch to receiver wallet
+            // Switch to receiver wallet (User B refuses delivery)
             this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
-            console.log('📦 Switched to receiver wallet for return');
+            console.log('📦 Switched to receiver wallet for refusal');
+            this.showSigningStatus('receiver', 'refusal');
 
             // Ensure we have a contract address
             if (!this.state.contractAddress) {
@@ -748,17 +738,19 @@ export class CustodialTransferDemo {
             this.lucid.selectWallet.fromSeed(SENDER_PASSPHRASE);
             const senderAddress = await this.lucid.wallet().address();
             console.log('👤 Sender address for return:', senderAddress);
+            
+            // Switch back to receiver wallet for signing
+            this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
 
             // Use the actual UTxO value, not the stored amount
             const contractValue = contractUtxo.assets.lovelace;
             console.log('💰 Contract UTxO value:', contractValue);
             console.log('💰 Original deposit amount:', this.state.amount);
             
-            // Switch to receiver wallet (receiver must sign for returns)
-            this.lucid.selectWallet.fromSeed(RECEIVER_PASSPHRASE);
-            console.log('📦 Switched to receiver wallet (receiver must authorize return)');
+            // Receiver wallet already selected above, receiver refuses delivery
+            console.log('📦 User B (receiver) will refuse delivery and return funds');
             
-            // Build transaction - funds go to sender, but receiver must sign
+            // Build transaction - funds go to sender, receiver must sign (User B refuses)
             const tx = await this.lucid
                 .newTx()
                 .collectFrom([contractUtxo], redeemer)
@@ -790,16 +782,18 @@ export class CustodialTransferDemo {
         console.log('🔄 Updating return UI...');
         const withdrawBtn = document.getElementById('withdraw-btn') as HTMLButtonElement;
         const deliverBtn = document.getElementById('deliver-btn') as HTMLButtonElement;
-        const returnBtn = document.getElementById('return-btn') as HTMLButtonElement;
+        const refuseBtn = document.getElementById('refuse-btn') as HTMLButtonElement;
         const senderStatus = document.getElementById('sender-status');
+        const custodianStatus = document.getElementById('custodian-status');
         const receiverStatus = document.getElementById('receiver-status');
 
         if (withdrawBtn) withdrawBtn.disabled = true;
         if (deliverBtn) deliverBtn.disabled = true;
-        if (returnBtn) returnBtn.disabled = true;
+        if (refuseBtn) refuseBtn.disabled = true;
 
         if (senderStatus) senderStatus.textContent = `Funds returned - received ${Number(this.state.amount) / 1000000} ADA`;
-        if (receiverStatus) receiverStatus.textContent = 'Successfully returned funds to sender';
+        if (receiverStatus) receiverStatus.textContent = 'Successfully refused delivery - funds returned';
+        if (custodianStatus) custodianStatus.textContent = 'Contract completed - delivery refused';
 
         console.log('✅ Return UI updated');
     }
@@ -814,11 +808,65 @@ export class CustodialTransferDemo {
         console.log(`[LOG] ${message}`);
     }
 
+    // UI feedback for transaction signing
+    private showSigningStatus(party: 'sender' | 'custodian' | 'receiver', action: string) {
+        const partyLabels = {
+            sender: 'User A (Sender)',
+            custodian: 'Entity C (Custodian)', 
+            receiver: 'User B (Receiver)'
+        };
+        
+        const message = `✍️ ${partyLabels[party]} is signing ${action} transaction...`;
+        this.log(message);
+        
+        // Update the party's status in the UI
+        const statusElements = {
+            sender: document.getElementById('sender-status'),
+            custodian: document.getElementById('custodian-status'),
+            receiver: document.getElementById('receiver-status')
+        };
+        
+        const statusElement = statusElements[party];
+        if (statusElement) {
+            const originalText = statusElement.textContent;
+            statusElement.textContent = `🔐 Signing transaction...`;
+            statusElement.style.backgroundColor = '#fff3cd';
+            statusElement.style.color = '#856404';
+            
+            // Reset after 3 seconds
+            setTimeout(() => {
+                if (statusElement.textContent === '🔐 Signing transaction...') {
+                    statusElement.textContent = originalText || '';
+                    statusElement.style.backgroundColor = '';
+                    statusElement.style.color = '';
+                }
+            }, 3000);
+        }
+    }
+
     clearLog() {
         console.log('🧹 Clearing transaction log...');
         const logElement = document.getElementById('transaction-log');
         if (logElement) {
             logElement.innerHTML = '';
         }
+    }
+
+    async refreshBalances() {
+        console.log('🔄 Refreshing all wallet balances...');
+        this.log('🔄 Refreshing wallet balances...');
+        
+        // Show loading state
+        const senderElement = document.getElementById('sender-wallet');
+        const custodianElement = document.getElementById('custodian-wallet');
+        const receiverElement = document.getElementById('receiver-wallet');
+        
+        if (senderElement) senderElement.textContent = 'Wallet: Loading...';
+        if (custodianElement) custodianElement.textContent = 'Wallet: Loading...';
+        if (receiverElement) receiverElement.textContent = 'Wallet: Loading...';
+        
+        // Call the existing balance update method
+        await this.setupWallets();
+        this.log('✅ Wallet balances refreshed');
     }
 }

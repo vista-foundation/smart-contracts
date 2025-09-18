@@ -5,25 +5,25 @@ A simple and efficient escrow smart contract for Cardano that enables secure ass
 ## 🔍 Overview
 
 The custodial transfer contract facilitates secure asset transfers between three parties:
-- **Sender (Party A)**: Deposits assets into escrow
-- **Receiver (Party B)**: Intended recipient of the assets  
-- **Custodian (Party C)**: Trusted third party who validates delivery
+- **User A / Sender (Party A)**: Deposits assets into escrow
+- **User B / Final Receiver (Party B)**: Intended recipient of the assets  
+- **Entity C / Custodian (Party C)**: Trusted third party who validates and facilitates delivery
 
 ## 📊 Contract Flow
 
 ```mermaid
 graph TD
-    A[Sender deposits assets<br/>Any amount of ADA + tokens] --> B[Contract UTXO created<br/>with Datum]
+    A[User A deposits assets<br/>Any amount of ADA + tokens] --> B[Contract UTXO created<br/>with Datum]
     
     B --> C{What happens next?}
     
-    C -->|Withdraw<br/>Signed by: Sender| D[ALL value → Sender<br/>Contract ENDS]
+    C -->|Withdraw<br/>Signed by: User A| D[ALL value → User A<br/>Contract ENDS]
     
-    C -->|Deliver<br/>Signed by: Receiver + Custodian| E[ALL value → Receiver<br/>Contract ENDS]
+    C -->|Deliver<br/>Signed by: Entity C only| E[ALL value → User B<br/>Contract ENDS]
     
-    C -->|Return<br/>Signed by: Receiver| F[ALL value → Sender<br/>Contract ENDS]
+    C -->|Refuse Delivery<br/>Signed by: User B| F[ALL value → User A<br/>Contract ENDS]
     
-    G[Datum Structure<br/>sender: VerificationKeyHash<br/>receiver: VerificationKeyHash<br/>custodian: VerificationKeyHash] --> B
+    G[Datum Structure<br/>sender: User A KeyHash<br/>receiver: User B KeyHash<br/>custodian: Entity C KeyHash] --> B
     
     style A fill:#e1f5fe
     style D fill:#e8f5e8
@@ -40,9 +40,9 @@ The contract state stored in the UTXO:
 
 ```aiken
 pub type Datum {
-  sender: VerificationKeyHash,      // Party A who deposits
-  receiver: VerificationKeyHash,    // Party B who receives
-  custodian: VerificationKeyHash,   // Party C who validates
+  sender: VerificationKeyHash,      // User A who deposits
+  receiver: VerificationKeyHash,    // User B who receives
+  custodian: VerificationKeyHash,   // Entity C who validates/facilitates
 }
 ```
 
@@ -51,40 +51,40 @@ The actions that can be performed:
 
 ```aiken
 pub type Redeemer {
-  Withdraw,  // Sender reclaims before delivery
-  Deliver,   // Receiver gets assets with custodian approval
-  Return,    // Receiver returns assets to sender
+  Withdraw,  // User A reclaims before delivery
+  Deliver,   // Entity C facilitates delivery to User B
+  Return,    // User B refuses delivery, returns to User A
 }
 ```
 
 ## ⚡ Operations
 
 ### 1. Deposit (Off-chain)
-- **Who**: Sender
+- **Who**: User A (Sender)
 - **Action**: Send any assets (ADA + tokens) to the contract address
 - **Result**: Creates a UTXO with the deposit datum
-- **Signature**: Sender only
+- **Signature**: User A only
 
 ### 2. Withdraw
-- **Who**: Sender  
+- **Who**: User A (Sender)
 - **When**: Before delivery occurs
 - **Action**: Reclaim all deposited assets
-- **Result**: All assets returned to sender, contract ends
-- **Signature**: Sender only
+- **Result**: All assets returned to User A, contract ends
+- **Signature**: User A only
 
 ### 3. Deliver
-- **Who**: Receiver + Custodian
-- **When**: Delivery is completed successfully
-- **Action**: Transfer all assets to receiver
-- **Result**: All assets go to receiver, contract ends
-- **Signature**: Both receiver and custodian required
+- **Who**: Entity C (Custodian)
+- **When**: Custodian confirms successful delivery
+- **Action**: Transfer all assets to User B (receiver)
+- **Result**: All assets go to User B, contract ends
+- **Signature**: Entity C only (custodian confirms delivery)
 
-### 4. Return
-- **Who**: Receiver
-- **When**: Asset needs to be returned to sender
-- **Action**: Send all assets back to sender
-- **Result**: All assets returned to sender, contract ends
-- **Signature**: Receiver only
+### 4. Return (Refuse Delivery)
+- **Who**: User B (Receiver)
+- **When**: User B refuses the delivery
+- **Action**: Send all assets back to User A
+- **Result**: All assets returned to User A, contract ends
+- **Signature**: User B only (receiver refuses)
 
 ## 🎯 Key Features
 
@@ -151,7 +151,6 @@ The contract can be integrated with:
 - **Wallets**: For signing transactions
 - **DApps**: For user interfaces
 - **APIs**: For automated escrow services
-- **Oracles**: For delivery confirmation
 
 ## 📄 License
 
@@ -163,4 +162,4 @@ Contributions are welcome! Please ensure all tests pass and follow the existing 
 
 ---
 
-*This contract provides a foundation for secure, efficient asset transfers on Cardano. Its simplicity makes it both gas-efficient and easy to understand, while maintaining strong security guarantees.*
+*This contract provides a foundation for secure, efficient asset transfers on Cardano. Its simplicity makes it both efficient and easy to understand, while maintaining strong security guarantees.*

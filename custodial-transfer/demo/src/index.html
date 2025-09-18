@@ -129,9 +129,9 @@
     <h1>Custodial Transfer Smart Contract Demo</h1>
     
     <div class="container">
-        <!-- Sender (Party A) -->
+        <!-- User A / Sender (Party A) -->
         <div class="party-section sender">
-            <div class="party-header">👤 Sender (Party A)</div>
+            <div class="party-header">👤 User A / Sender (Party A)</div>
             <div class="status" id="sender-status">Ready to create contract</div>
             
             <div class="input-group">
@@ -150,26 +150,26 @@
             <div class="status" id="sender-wallet">Wallet: Loading...</div>
         </div>
         
-        <!-- Receiver (Party B) -->
+        <!-- User B / Final Receiver (Party B) -->
         <div class="party-section receiver">
-            <div class="party-header">📦 Receiver (Party B)</div>
-            <div class="status" id="receiver-status">Waiting for contract...</div>
+            <div class="party-header">📦 User B / Final Receiver (Party B)</div>
+            <div class="status" id="receiver-status">Waiting for delivery...</div>
             
-            <button class="action-button" id="deliver-btn" onclick="deliverToPartyC()" disabled>
-                🚚 Deliver to Party C
-            </button>
-            
-            <button class="action-button" id="return-btn" onclick="returnToSender()" disabled>
-                ↩️ Return to Sender
+            <button class="action-button" id="refuse-btn" onclick="refuseDelivery()" disabled>
+                ❌ Refuse Delivery & Return
             </button>
             
             <div class="status" id="receiver-wallet">Wallet: Loading...</div>
         </div>
         
-        <!-- Custodian (Party C) -->
+        <!-- Entity C / Custodian (Party C) -->
         <div class="party-section custodian">
-            <div class="party-header">🏛️ Custodian (Party C)</div>
-            <div class="status" id="custodian-status">Waiting for delivery...</div>
+            <div class="party-header">🏛️ Entity C / Custodian (Party C)</div>
+            <div class="status" id="custodian-status">Waiting for contract...</div>
+            
+            <button class="action-button" id="deliver-btn" onclick="deliverToReceiver()" disabled>
+                🚚 Facilitate Delivery to User B
+            </button>
             
             <div class="status" id="custodian-wallet">Wallet: Loading...</div>
         </div>
@@ -180,6 +180,7 @@
         <h3>Transaction Log</h3>
         <div class="log" id="transaction-log"></div>
         <button class="action-button" onclick="clearLog()">Clear Log</button>
+        <button class="action-button" onclick="refreshBalances()" style="background-color: #17a2b8;">🔄 Refresh All Balances</button>
     </div>
     
     <script type="module" src="./main.ts"></script>

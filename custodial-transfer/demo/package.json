@@ -1,12 +1,9 @@
 {
-  "name": "example",
+  "name": "custodial-transfer-demo",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Demo web interface for the Custodial Transfer Smart Contract on Cardano",
+  "main": "src/main.ts",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui",
     "dev": "vite",
     "build": "tsc && vite build",
     "serve": "vite preview"
@@ -19,7 +16,6 @@
     "@lucid-evolution/lucid": "^0.4.29"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
     "@types/node": "^20.0.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",

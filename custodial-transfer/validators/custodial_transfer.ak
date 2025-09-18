@@ -138,19 +138,13 @@ fn handle_deliver(
   own_address: Address,
   own_value: Value,
 ) -> Bool {
-  trace @"handle_deliver called": datum.receiver, datum.custodian, own_value
+  trace @"handle_deliver called": datum.custodian, datum.receiver, own_value
   trace @"all signatories": signatories
-  trace @"looking for receiver": datum.receiver
   trace @"looking for custodian": datum.custodian
-  // Pre: Signed by receiver and custodian
-  let receiver_signed = list.has(signatories, datum.receiver)
+  // Pre: Signed by custodian (Entity C confirms delivery)
   let custodian_signed = list.has(signatories, datum.custodian)
-  trace @"signature checks": receiver_signed, custodian_signed
-  // Debug: Check each signatory individually
-  trace @"receiver in signatories": list.any(
-    signatories,
-    fn(s) { s == datum.receiver },
-  )
+  trace @"custodian signature check": custodian_signed
+  // Debug: Check custodian individually
   trace @"custodian in signatories": list.any(
     signatories,
     fn(s) { s == datum.custodian },
@@ -162,8 +156,7 @@ fn handle_deliver(
   let no_continuing_output =
     !list.any(outputs, fn(o) { o.address == own_address })
   trace @"no continuing output": no_continuing_output
-  let result =
-    receiver_signed && custodian_signed && correct_payment && no_continuing_output
+  let result = custodian_signed && correct_payment && no_continuing_output
   trace @"deliver result": result
   result
 }
@@ -176,16 +169,23 @@ fn handle_return(
   own_address: Address,
   own_value: Value,
 ) -> Bool {
-  trace @"handle_return called": datum.receiver, datum.sender, own_value
+  trace @"handle_return called": datum.receiver, datum.custodian, datum.sender, own_value
   trace @"all signatories": signatories
   trace @"looking for receiver": datum.receiver
-  // Pre: Signed by receiver
+  trace @"looking for custodian": datum.custodian
+  // Pre: Signed by receiver OR custodian (either can initiate return)
   let receiver_signed = list.has(signatories, datum.receiver)
+  let custodian_signed = list.has(signatories, datum.custodian)
   trace @"receiver signature check": receiver_signed
-  // Debug: Check receiver individually
+  trace @"custodian signature check": custodian_signed
+  // Debug: Check each individually
   trace @"receiver in signatories": list.any(
     signatories,
     fn(s) { s == datum.receiver },
+  )
+  trace @"custodian in signatories": list.any(
+    signatories,
+    fn(s) { s == datum.custodian },
   )
   // Post: Entire UTXO value paid to sender, no continuing output (contract ends)
   let correct_payment =
@@ -194,7 +194,8 @@ fn handle_return(
   let no_continuing_output =
     !list.any(outputs, fn(o) { o.address == own_address })
   trace @"no continuing output": no_continuing_output
-  let result = receiver_signed && correct_payment && no_continuing_output
+  let result =
+    ( receiver_signed || custodian_signed ) && correct_payment && no_continuing_output
   trace @"return result": result
   result
 }
@@ -343,7 +344,7 @@ test test_successful_delivery_property(
     sample_datum(params.sender_pkh, params.receiver_pkh, params.custodian_pkh)
   let own_value = assets.from_lovelace(params.lovelace_amount)
   let outputs = [sample_output(sample_address(params.receiver_pkh), own_value)]
-  let signatories = [params.receiver_pkh, params.custodian_pkh]
+  let signatories = [params.custodian_pkh]
   let own_address = sample_script_address()
   handle_deliver(datum, outputs, signatories, own_address, own_value)
 }
@@ -361,7 +362,20 @@ test test_withdrawal_by_sender_property(
   handle_withdraw(datum, outputs, signatories, own_address, own_value)
 }
 
-// Test Case 3: Property test for return by receiver
+// Test Case 3: Property test for return by custodian
+test test_return_by_custodian_property(
+  params: TestParams via sample_test_params(),
+) {
+  let datum =
+    sample_datum(params.sender_pkh, params.receiver_pkh, params.custodian_pkh)
+  let own_value = assets.from_lovelace(params.lovelace_amount)
+  let outputs = [sample_output(sample_address(params.sender_pkh), own_value)]
+  let signatories = [params.custodian_pkh]
+  let own_address = sample_script_address()
+  handle_return(datum, outputs, signatories, own_address, own_value)
+}
+
+// Test Case 3b: Property test for return by receiver (User B refuses)
 test test_return_by_receiver_property(
   params: TestParams via sample_test_params(),
 ) {
@@ -383,7 +397,7 @@ test test_delivery_without_custodian_fails_property(
   let own_value = assets.from_lovelace(params.lovelace_amount)
   let outputs = [sample_output(sample_address(params.receiver_pkh), own_value)]
   let signatories = [params.receiver_pkh]
-  // Missing custodian signature
+  // Wrong signatory - should be custodian, not receiver
   let own_address = sample_script_address()
   !handle_deliver(datum, outputs, signatories, own_address, own_value)
 }
@@ -402,8 +416,8 @@ test test_withdrawal_without_sender_fails_property(
   !handle_withdraw(datum, outputs, signatories, own_address, own_value)
 }
 
-// Test Case 6: Property test for return failure without receiver signature
-test test_return_without_receiver_fails_property(
+// Test Case 6: Property test for return failure without receiver or custodian signature
+test test_return_without_authorized_party_fails_property(
   params: TestParams via sample_test_params(),
 ) {
   let datum =
@@ -411,7 +425,7 @@ test test_return_without_receiver_fails_property(
   let own_value = assets.from_lovelace(params.lovelace_amount)
   let outputs = [sample_output(sample_address(params.sender_pkh), own_value)]
   let signatories = [params.sender_pkh]
-  // Wrong signatory
+  // Wrong signatory (should be receiver or custodian, not sender)
   let own_address = sample_script_address()
   !handle_return(datum, outputs, signatories, own_address, own_value)
 }
