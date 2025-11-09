@@ -1,124 +1,83 @@
-# Escrow Services Demo
+# Escrow Services CLI Demo
 
-This directory contains the interactive demonstration for the Escrow Services smart contract.
+This directory hosts the command-line demonstration for the Escrow Services smart contract.  
+It connects to the Cardano Preview network and submits real transactions that showcase every supported flow without relying on a browser UI.
 
 ## 🚀 Quick Start
 
-### 1. Get Blockfrost API Key
-1. Go to [https://blockfrost.io/](https://blockfrost.io/)
-2. Create a free account
-3. Create a new project for **Preview** network
-4. Copy your API key (starts with `preview_...`)
+1. **Get a Blockfrost Preview API key**
+   - Visit [https://blockfrost.io/](https://blockfrost.io/)
+   - Create a free account and a project on the **Preview** network
+   - Copy the generated API key (starts with `preview_`)
 
-### 2. Setup Environment
-```bash
-# Copy environment template
-cp env.template .env
+2. **Configure the environment**
+   ```bash
+   cp env.template .env
+   # edit .env and replace the API key placeholder
+   ```
 
-# Edit .env file and replace the placeholder with your actual API key
-nano .env
-```
+3. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
 
-### 3. Install Dependencies
-```bash
-pnpm install
-```
+4. **Run the CLI demonstration**
+   ```bash
+   pnpm start
+   # or
+   node deploy-cli.js
+   ```
 
-### 4. Run Demos
+The CLI executes a series of deposits and contract interactions, automatically waiting 45 seconds between each transaction so Blockfrost can index the results.
 
-#### CLI Demo
-```bash
-node deploy-cli.js
-```
+## 📁 Key Files
 
-#### Web Interface Demo
-```bash
-pnpm dev
-```
-Then open http://localhost:3000
+- `deploy-cli.js` – main CLI script executing the escrow scenarios
+- `env.template` – environment template for Blockfrost settings
+- `.env` – copy of the template with your credentials (ignored by git)
+- `setup.sh` – helper script that copies `.env`, installs dependencies, and reminds you how to run the CLI
+- `package.json` – minimal dependency list for the CLI workflow
 
-## 📁 Project Structure
+## 🎯 Demonstrated Scenarios
 
-```
-demo/
-├── src/
-│   ├── app/
-│   │   ├── contract.ts       # Main demo logic with real transactions
-│   │   ├── credentials.ts    # Hardcoded test wallets (same as custodial-transfer)
-│   │   ├── env.ts           # Environment configuration
-│   │   ├── lucid.ts         # Lucid Evolution loader
-│   │   ├── polyfills.ts     # Browser compatibility
-│   │   └── state.ts         # State management
-│   ├── index.html           # Web interface
-│   └── main.ts              # Entry point
-├── deploy-cli.js            # CLI demonstration script
-├── env.template             # Environment template
-├── setup.sh                 # Setup script
-└── package.json             # Dependencies
-```
+- **Time-lock release** – see [`SCENARIOS.md`](./SCENARIOS.md) for actors and the validity window the CLI uses when relying on deadlines.
+- **Multi-signature release** – signature-driven release without time bounds.
+- **Authorized refund** – signatures return the entire balance to the depositor (no fees applied).
+- **Depositor cancel** – depositor cancels before the deadline; the CLI sets `validTo` just before the datum deadline so the validator accepts it.
+- **Fee-based release** – demonstrates the only path that enforces percentage fees; refund/cancel paths bypass fees entirely.
 
-## 🎯 Demo Features
+Each scenario uses small ADA values (5 ADA) so repeated executions remain affordable on the Preview network. Consult the top-level [`escrow-services/README.md`](../README.md#validity--fee-rules) for the full set of rules covering deadlines, validity ranges, and fee handling.
 
-### Time-Lock Escrow
-- Deposit assets with automatic unlock after deadline
-- Demonstrates time-based conditions
-- Real blockchain transactions
+## 🔧 Environment Variables
 
-### Multi-Signature Escrow
-- Require multiple signatures to release funds
-- Demonstrates key-based conditions
-- Flexible M-of-N signature schemes
-
-### Real Blockchain Integration
-- Connects to Cardano Preview network
-- Uses Lucid Evolution for transaction building
-- Real wallet balance checking
-- Actual UTXO management
-
-## 🔧 Configuration
-
-### Environment Variables (.env)
 ```bash
 BLOCKFROST_KEY=preview_your_actual_api_key_here
 BLOCKFROST_URL=https://cardano-preview.blockfrost.io/api/v0
 CARDANO_NETWORK=Preview
 ```
 
-### Test Wallets
-The demo uses hardcoded test wallets (same as custodial-transfer):
-- **Depositor (Party A)**: Funded testnet wallet
-- **Beneficiary (Party B)**: Funded testnet wallet  
-- **Authorized Key (Party C)**: Funded testnet wallet
+## 💳 Test Wallets
 
-**Note**: These are test credentials only. Never use on mainnet.
+The CLI reuses the same funded Preview test wallets referenced in the repository:
+- **Party A (Depositor)**
+- **Party B (Beneficiary)**
+- **Party C (Authorized / Fee recipient)**
 
-## 🎥 Video Recording
+> These credentials are for **testnet only**. Never reuse them on mainnet.
 
-This demo is designed for grant demonstration videos. See `../DEMO_INSTRUCTIONS.md` for detailed recording instructions.
+## 🛠 Troubleshooting
 
-## 🔍 Troubleshooting
+- **`BLOCKFROST_KEY environment variable is required`**  
+  Copy `env.template` to `.env`, populate the key, and rerun the CLI.
 
-### "Cannot convert undefined to a BigInt"
-- Your Blockfrost API key is invalid or not set
-- Make sure you're using a Preview network key
-- Check that .env file exists and has correct format
+- **`EMPTY_UTXO` or missing UTxO errors**  
+  Ensure the previous transaction has been indexed (the CLI already waits 45 seconds). Rerun the command if necessary.
 
-### "BLOCKFROST_KEY environment variable is required"
-- Copy `env.template` to `.env`
-- Edit `.env` with your actual API key
-
-### Dependencies Issues
-- Run `pnpm install` to install all dependencies
-- Make sure you have Node.js v18+ installed
-
-### Port 3000 Already in Use
-```bash
-pnpm dev --port 3001
-```
+- **Network or provider errors**  
+  Verify your internet connection and confirm that the Blockfrost Preview service is reachable.
 
 ## 📝 Notes
 
-- All transactions are real Preview network transactions
-- No mock or simulation modes - everything is authentic
-- Requires active internet connection for Blockfrost API
-- API key must be for Preview network (not Mainnet)
+- All transactions interact with the real Cardano Preview testnet.
+- The CLI logs every transaction hash so you can verify them on Blockfrost or any Preview explorer.
+- Extend or customize the scenarios by editing `deploy-cli.js`.

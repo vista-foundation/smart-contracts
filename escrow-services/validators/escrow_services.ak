@@ -1,6 +1,7 @@
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
 use aiken/fuzz
+use aiken/interval
 use cardano/address.{Address, Script, VerificationKey}
 use cardano/assets.{Value}
 use cardano/transaction.{Input, NoDatum, Output, OutputReference, Transaction}
@@ -46,16 +47,16 @@ validator escrow_services {
     datum: Option<EscrowDatum>,
     redeemer: EscrowRedeemer,
     own_ref: OutputReference,
-    transaction: Transaction,
+    tx: Transaction,
   ) {
     trace @"escrow_services validator called"
     // Extract datum - fail if None
     expect Some(datum) = datum
     trace @"datum extracted": datum
-    let inputs = transaction.inputs
-    let outputs = transaction.outputs
-    let extra_signatories = transaction.extra_signatories
-    let validity_range = transaction.validity_range
+    let inputs = tx.inputs
+    let outputs = tx.outputs
+    let extra_signatories = tx.extra_signatories
+    let validity_range = tx.validity_range
     trace @"transaction info": inputs, outputs, extra_signatories
     // Find own input
     expect Some(own_input) =
@@ -131,30 +132,88 @@ fn find_output_to_pkh_with_value(
   result
 }
 
-// Helper function to calculate fee amount
-fn calculate_fee(value: Value, fee_config: FeeConfig) -> (Value, Value) {
-  // For simplicity, we'll work with lovelace only for fees
-  // In a production system, you'd handle multi-asset fees more carefully
-  let lovelace_amount = assets.lovelace_of(value)
-  let fee_amount = lovelace_amount * fee_config.fee_percentage / 10000
-  let remaining_amount = lovelace_amount - fee_amount
-  // Create fee value and remaining value
-  let fee_value = assets.from_lovelace(fee_amount)
-  let remaining_value = assets.from_lovelace(remaining_amount)
-  (fee_value, remaining_value)
+fn compute_release_distribution(
+  value: Value,
+  fee_config: FeeConfig,
+) -> Option<(Value, Value)> {
+  let fee_percentage = fee_config.fee_percentage
+  if fee_percentage < 0 || fee_percentage > 10000 {
+    trace @"invalid fee percentage": fee_percentage
+    None
+  } else {
+    let lovelace_amount = assets.lovelace_of(value)
+    if lovelace_amount < 0 {
+      trace @"negative lovelace in escrow": lovelace_amount
+      None
+    } else {
+      let fee_amount = lovelace_amount * fee_percentage / 10000
+      let beneficiary_lovelace = lovelace_amount - fee_amount
+      if beneficiary_lovelace < 0 {
+        trace @"fee exceeds available lovelace": fee_amount, lovelace_amount
+        None
+      } else {
+        let tokens = assets.without_lovelace(value)
+        let beneficiary_value =
+          assets.merge(tokens, assets.from_lovelace(beneficiary_lovelace))
+        let fee_value = assets.from_lovelace(fee_amount)
+        Some((beneficiary_value, fee_value))
+      }
+    }
+  }
 }
 
-// Helper function to check if current time is past deadline
-fn is_past_deadline(deadline: Option<Int>, validity_range) -> Bool {
+fn lower_bound_on_or_after(
+  validity_range: transaction.ValidityRange,
+  point: Int,
+) -> Bool {
+  let lower = validity_range.lower_bound
+  when lower.bound_type is {
+    interval.NegativeInfinity -> False
+    interval.PositiveInfinity -> False
+    interval.Finite(value) ->
+      if lower.is_inclusive {
+        value >= point
+      } else {
+        value > point
+      }
+  }
+}
+
+fn upper_bound_before(
+  validity_range: transaction.ValidityRange,
+  point: Int,
+) -> Bool {
+  let upper = validity_range.upper_bound
+  when upper.bound_type is {
+    interval.NegativeInfinity -> True
+    interval.PositiveInfinity -> False
+    interval.Finite(value) ->
+      if upper.is_inclusive {
+        value < point
+      } else {
+        value <= point
+      }
+  }
+}
+
+fn is_past_deadline(
+  deadline: Option<Int>,
+  validity_range: transaction.ValidityRange,
+) -> Bool {
   when deadline is {
     None -> False
-    Some(_deadline_time) ->
-      // In a real implementation, you'd extract the current time from validity_range
-      // For testing purposes, we'll return False to simulate time not expired
-      // This would need proper time validation in production
-      False
+    Some(deadline_time) -> lower_bound_on_or_after(validity_range, deadline_time)
   }
-  // Simplified for testing - assume time not expired
+}
+
+fn is_before_deadline(
+  deadline: Option<Int>,
+  validity_range: transaction.ValidityRange,
+) -> Bool {
+  when deadline is {
+    None -> True
+    Some(deadline_time) -> upper_bound_before(validity_range, deadline_time)
+  }
 }
 
 // Helper function to check required signatures
@@ -177,7 +236,7 @@ fn handle_release(
   signatories: List<VerificationKeyHash>,
   own_address: Address,
   own_value: Value,
-  validity_range,
+  validity_range: transaction.ValidityRange,
 ) -> Bool {
   trace @"handle_release called": datum.beneficiary, own_value
   // Check unlock conditions
@@ -195,29 +254,47 @@ fn handle_release(
     trace @"unlock conditions not met"
     False
   } else {
-    // Calculate fees and distribution
-    let (fee_value, beneficiary_value) =
-      calculate_fee(own_value, datum.fee_config)
-    // Check correct payment to beneficiary
-    let correct_beneficiary_payment =
-      find_output_to_pkh_with_value(
-        outputs,
-        datum.beneficiary,
-        beneficiary_value,
-      )
-    // Check fee payment (if any)
-    let correct_fee_payment =
-      when datum.fee_config.fee_recipient is {
-        None -> True
-        // No fee required
-        Some(fee_recipient) ->
-          find_output_to_pkh_with_value(outputs, fee_recipient, fee_value)
+    when compute_release_distribution(own_value, datum.fee_config) is {
+      None -> {
+        trace @"distribution calculation failed"
+        False
       }
-    // Ensure no continuing output
-    let no_continuing_output =
-      !list.any(outputs, fn(o) { o.address == own_address })
-    trace @"release checks": correct_beneficiary_payment, correct_fee_payment, no_continuing_output
-    correct_beneficiary_payment && correct_fee_payment && no_continuing_output
+      Some((beneficiary_value, fee_value)) -> {
+        let correct_beneficiary_payment =
+          find_output_to_pkh_with_value(
+            outputs,
+            datum.beneficiary,
+            beneficiary_value,
+          )
+        let fee_amount = assets.lovelace_of(fee_value)
+        let fee_required = fee_amount > 0
+        let correct_fee_payment =
+          when (datum.fee_config.fee_recipient, fee_required) is {
+            (None, True) -> {
+              trace @"fee recipient required but missing": fee_amount
+              False
+            }
+            (None, False) -> True
+            (Some(fee_recipient), _) ->
+              find_output_to_pkh_with_value(outputs, fee_recipient, fee_value)
+          }
+        let expected_total = assets.merge(beneficiary_value, fee_value)
+        let value_conserved =
+          assets.merge(own_value, assets.negate(expected_total))
+            |> assets.is_zero
+        let no_continuing_output =
+          !list.any(outputs, fn(o) { o.address == own_address })
+        trace @"release checks":
+          correct_beneficiary_payment,
+          correct_fee_payment,
+          no_continuing_output,
+          value_conserved
+        correct_beneficiary_payment
+          && correct_fee_payment
+          && no_continuing_output
+          && value_conserved
+      }
+    }
   }
 }
 
@@ -228,7 +305,7 @@ fn handle_refund(
   signatories: List<VerificationKeyHash>,
   own_address: Address,
   own_value: Value,
-  validity_range,
+  validity_range: transaction.ValidityRange,
 ) -> Bool {
   trace @"handle_refund called": datum.depositor, own_value
   // Check refund conditions
@@ -265,18 +342,13 @@ fn handle_cancel(
   signatories: List<VerificationKeyHash>,
   own_address: Address,
   own_value: Value,
-  validity_range,
+  validity_range: transaction.ValidityRange,
 ) -> Bool {
   trace @"handle_cancel called": datum.depositor, own_value
   // Only depositor can cancel
   let depositor_signed = list.has(signatories, datum.depositor)
   // Can only cancel before deadline (if deadline exists)
-  let before_deadline =
-    when datum.deadline is {
-      None -> True
-      // No deadline, can always cancel
-      Some(_) -> !is_past_deadline(datum.deadline, validity_range)
-    }
+  let before_deadline = is_before_deadline(datum.deadline, validity_range)
   trace @"cancel conditions": depositor_signed, before_deadline
   if !depositor_signed || !before_deadline {
     trace @"cancel conditions not met"
@@ -413,7 +485,7 @@ test test_key_based_release_property(
   let signatories = [params.authorized_key1]
   // One authorized signature
   let own_address = sample_script_address()
-  let validity_range = None
+  let validity_range = interval.everything
   // Simplified for testing
   handle_release(
     datum,
@@ -440,7 +512,7 @@ test test_depositor_refund_property(params: TestParams via sample_test_params())
   let signatories = [params.depositor_pkh]
   // Depositor signature
   let own_address = sample_script_address()
-  let validity_range = None
+  let validity_range = interval.everything
   // Simplified for testing
   handle_refund(
     datum,
@@ -469,7 +541,7 @@ test test_depositor_cancel_property(params: TestParams via sample_test_params())
   let signatories = [params.depositor_pkh]
   // Only depositor can cancel
   let own_address = sample_script_address()
-  let validity_range = None
+  let validity_range = interval.entirely_before(0)
   // Simplified for testing
   handle_cancel(
     datum,
@@ -502,7 +574,7 @@ test test_unauthorized_release_fails_property(
       let signatories = [params.authorized_key1]
       // Only 1 signature, need 2
       let own_address = sample_script_address()
-      let validity_range = None
+      let validity_range = interval.everything
       // Simplified for testing
       !handle_release(
         datum,
@@ -537,7 +609,7 @@ test test_unauthorized_cancel_fails_property(
       let signatories = [params.beneficiary_pkh]
       // Wrong signer
       let own_address = sample_script_address()
-      let validity_range = None
+      let validity_range = interval.everything
       !handle_cancel(
         datum,
         outputs,
@@ -562,7 +634,7 @@ test test_simple_release_success() {
   let outputs = [sample_output(sample_address(beneficiary), own_value)]
   let signatories = [auth_key]
   let own_address = sample_script_address()
-  let validity_range = None
+  let validity_range = interval.everything
   handle_release(
     datum,
     outputs,
@@ -581,7 +653,7 @@ test test_simple_cancel_success() {
   let outputs = [sample_output(sample_address(depositor), own_value)]
   let signatories = [depositor]
   let own_address = sample_script_address()
-  let validity_range = None
+  let validity_range = interval.entirely_before(0)
   handle_cancel(
     datum,
     outputs,
@@ -599,7 +671,7 @@ test test_empty_outputs_fails() {
   let signatories = [#[0x03]]
   let own_address = sample_script_address()
   let own_value = assets.from_lovelace(2000000)
-  let validity_range = None
+  let validity_range = interval.everything
   !handle_release(
     datum,
     outputs,
@@ -621,7 +693,7 @@ test test_continuing_output_fails() {
     ]
   // Continuing output
   let signatories = [#[0x03]]
-  let validity_range = None
+  let validity_range = interval.everything
   !handle_release(
     datum,
     outputs,

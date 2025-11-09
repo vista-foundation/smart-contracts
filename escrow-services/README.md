@@ -46,7 +46,7 @@ pub type EscrowDatum {
   beneficiary: VerificationKeyHash,
   
   // Time constraints (grant requirement)
-  deadline: Option<Int>,  // POSIX timestamp for auto-release
+  deadline: Option<Int>,  // POSIX timestamp (milliseconds) for auto-release
   
   // Key-based conditions (grant requirement)
   required_signatures: Int,         // 1 or 2 for simple multi-sig
@@ -108,6 +108,15 @@ pub type EscrowRedeemer {
 - **Result**: All assets returned to depositor, contract ends
 - **Fees**: No fees charged on cancellation
 
+> Detailed CLI walkthroughs live in [`demo/SCENARIOS.md`](demo/SCENARIOS.md) and the accompanying [`demo/README.md`](demo/README.md). They reference the rules in this section so the information stays in sync.
+
+### Validity & Fee Rules
+- Deadlines are stored in POSIX **milliseconds**. Off-chain builders must convert to milliseconds before calling wallet APIs such as `validFrom`/`validTo`.
+- **Time-based release/refund** transactions must set `validFrom` at or after the datum deadline so the validator can prove that the deadline has passed without signatures.
+- **Depositor cancel** transactions must set `validTo` strictly before the datum deadline. This proves the request happened in time and prevents reuse of the cancel redeemer after expiry.
+- **Refund** and **cancel** flows never apply fees. The entire script balance returns to the depositor even if the datum configures a fee percentage.
+- **Release** is the only path that deducts fees, and it requires a fee recipient output whenever the computed fee is non-zero.
+
 ## 🎯 Key Features
 
 ### ✅ Grant Requirements Met
@@ -148,9 +157,11 @@ pub type EscrowRedeemer {
 - **Demo**: Real-world freelance/service payment scenario
 
 ### 4. Fee-Based Escrow Service
-- **Setup**: Escrow service charges 1% fee for facilitation
-- **Unlock**: 99% goes to beneficiary, 1% to service provider
+- **Setup**: Escrow service charges 20% fee for facilitation (keeps fee output above min-ADA)
+- **Unlock**: 80% goes to beneficiary, 20% to service provider
 - **Demo**: Shows configurable fee functionality
+
+🚀 **CLI demonstration:** `demo/deploy-cli.js` executes all four scenarios back-to-back using 5 ADA per escrow and inserts a 45-second pause after each transaction so Blockfrost can index the new UTxOs.
 
 ## 🔧 Building and Testing
 
@@ -200,16 +211,14 @@ cp env.template .env
 nano .env
 ```
 
-#### 3. Run Demos
+#### 3. Run CLI Demo
 ```bash
-# CLI Demo
+pnpm start
+# or
 node deploy-cli.js
-
-# Web Demo
-pnpm dev
 ```
 
-Open http://localhost:3000 to access the interactive demo with real blockchain transactions.
+The CLI executes every escrow scenario sequentially and pauses for 45 seconds after each transaction so Blockfrost has time to index the results.
 
 ## 📝 Usage Examples
 
@@ -228,159 +237,3 @@ const datum = {
   }
 }
 ```
-
-### Example 2: Multi-Sig with Fees
-```javascript
-// Datum for 2-of-3 multi-sig with 1% fee
-const datum = {
-  depositor: "addr1...",
-  beneficiary: "addr2...",
-  deadline: null, // No time limit
-  required_signatures: 2,
-  authorized_keys: ["key1", "key2", "key3"],
-  fee_config: {
-    fee_percentage: 100, // 1% (100 basis points)
-    fee_recipient: "service_provider_addr"
-  }
-}
-```
-
-### Example 3: Service Payment
-```javascript
-// Datum for freelance payment with 30-day deadline
-const datum = {
-  depositor: "client_addr",
-  beneficiary: "freelancer_addr",
-  deadline: Date.now() + (30 * 24 * 3600 * 1000), // 30 days
-  required_signatures: 1,
-  authorized_keys: ["freelancer_key", "client_key"], // Either can trigger
-  fee_config: {
-    fee_percentage: 250, // 2.5% platform fee
-    fee_recipient: "platform_addr"
-  }
-}
-```
-
-## 🏛️ Contract Architecture
-
-### Design Principles
-- **Simplicity**: Minimal complexity while meeting all requirements
-- **Security**: Robust validation and error handling
-- **Extensibility**: Clean interfaces for future enhancements
-- **Efficiency**: Optimized for minimal transaction fees
-
-### Validation Logic
-1. **Input validation**: Verify datum structure and constraints
-2. **Authorization check**: Validate signatures against authorized keys
-3. **Time validation**: Check deadline constraints (when applicable)
-4. **Output validation**: Ensure correct asset distribution
-5. **Fee calculation**: Handle configurable fee deduction
-6. **Cleanup validation**: Ensure no continuing outputs
-
-## 🚀 Deployment
-
-### Testnet Deployment
-1. Build the contract: `aiken build`
-2. Get Blockfrost Preview API key from [blockfrost.io](https://blockfrost.io/)
-3. Setup demo environment: `cd demo && cp env.template .env`
-4. Edit `.env` file with your API key
-5. Install dependencies: `pnpm install`
-6. Run demo: `pnpm dev`
-7. Access web interface at http://localhost:3000
-
-### Demo Components
-The `demo/` directory contains:
-- **TypeScript Web Interface**: Interactive demo with real transactions
-- **CLI Script**: Command-line demonstration tool
-- **Real Wallet Integration**: Uses Lucid Evolution with Blockfrost
-- **Preview Network**: Connected to Cardano Preview testnet
-
-## 📊 Performance
-
-### Transaction Costs (Testnet)
-- **Release**: ~0.2 ADA transaction fee
-- **Refund**: ~0.2 ADA transaction fee  
-- **Cancel**: ~0.2 ADA transaction fee
-
-### Script Size
-- **Validator size**: ~7KB (well under 8KB limit)
-- **Execution units**: ~400K CPU, ~1.2M Memory (efficient)
-
-## 🛠️ Integration
-
-### Wallet Integration
-- Compatible with all Cardano wallets supporting Plutus V3
-- Standard transaction building using cardano-serialization-lib
-- Support for both CIP-30 and direct wallet integration
-
-### DApp Integration
-- RESTful API endpoints for common operations
-- WebSocket support for real-time updates
-- TypeScript SDK for easy integration
-
-## 🔄 Future Enhancements
-
-### Oracle Integration Ready
-The contract is designed to easily add oracle-based conditions:
-```aiken
-// Future oracle condition example
-pub type UnlockCondition {
-  KeyBased { required_sigs: Int, keys: List<KeyHash> }
-  TimeBased { deadline: Int }
-  OracleBased { oracle_address: Address, condition: ByteArray }
-}
-```
-
-### Planned Extensions
-- **Partial releases**: Milestone-based payments
-- **Dispute resolution**: Built-in arbitration
-- **Cross-chain support**: Bridge to other blockchains
-- **Advanced fee models**: Dynamic fee structures
-
-## 📄 License
-
-Licensed under the Apache License, Version 2.0.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please ensure:
-- All tests pass (`aiken check`)
-- Code follows existing style (`aiken fmt`)
-- New features include comprehensive tests
-- Documentation is updated accordingly
-
-## 🎥 Demo Video Requirements
-
-This contract fulfills all grant requirements for demonstration:
-
-### ✅ Cloning Repository
-```bash
-git clone <repository-url>
-cd smart-contracts/escrow-services
-```
-
-### ✅ Deploying to Testnet
-```bash
-aiken build
-# Deploy using provided scripts
-```
-
-### ✅ Locking Assets
-- Deposit ADA/tokens to contract address
-- Create UTXO with proper datum
-
-### ✅ User Withdrawal
-- Beneficiary withdraws when authorized
-- Proper signature validation
-
-### ✅ Time-Lock Unlock
-- Assets unlock automatically after deadline
-- Time-based condition demonstration
-
-### ✅ Key-Based Unlock
-- Multi-signature authorization
-- Flexible key-based conditions
-
----
-
-*This escrow services contract provides a robust foundation for secure, flexible asset transfers on Cardano. Its clean architecture makes it both efficient and easy to understand, while maintaining strong security guarantees and extensibility for future enhancements.*

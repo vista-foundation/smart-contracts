@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up Escrow Services Demo..."
+echo "🚀 Setting up Escrow Services CLI..."
 
 # Check if .env exists
 if [ ! -f .env ]; then
@@ -19,7 +19,7 @@ pnpm install
 echo ""
 echo "🎯 Setup complete! Next steps:"
 echo "1. Edit .env file and add your Blockfrost Preview API key"
-echo "2. Run CLI demo: node deploy-cli.js"
-echo "3. Run web demo: pnpm dev"
+echo "2. Run CLI demo: pnpm start"
+echo "   or: node deploy-cli.js"
 echo ""
 echo "💡 Make sure your API key is for the Preview network!"
