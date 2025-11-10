@@ -30,6 +30,8 @@ const { walletFromSeed } = require('@lucid-evolution/wallet');
 
 const WAIT_MS = 45_000;
 const ADA = 1_000_000n;
+const TIMELOCK_BUFFER_MS = 2 * 60 * 1000; // 2 minutes
+const CANCEL_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 const credentials = {
     PartyA: {
@@ -215,12 +217,12 @@ class EscrowCLI {
         console.log('\n🕒 Scenario 1: Time-lock deposit and release (5 ADA, beneficiary unlock)');
 
         const amount = 5n * ADA;
-        const deadlineSeconds = BigInt(Math.floor(Date.now() / 1000) + 3600); // +1 hour
+        const deadlineMs = Date.now() + TIMELOCK_BUFFER_MS;
 
         const datum = this.buildDatum({
             depositorKeyHash: this.keyHashes.depositor,
             beneficiaryKeyHash: this.keyHashes.beneficiary,
-            deadline: deadlineSeconds,
+            deadline: deadlineMs,
             requiredSignatures: 1,
             authorizedKeys: [this.keyHashes.beneficiary],
             feePercentage: 0,
@@ -328,12 +330,13 @@ class EscrowCLI {
         console.log('\n🛑 Scenario 4: Depositor cancels escrow before deadline (5 ADA)');
 
         const amount = 5n * ADA;
-        const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 24 * 3600); // +24 hours
+        const futureDeadlineMs = Date.now() + CANCEL_BUFFER_MS;
+        const cancelValidTo = futureDeadlineMs - 100;
 
         const datum = this.buildDatum({
             depositorKeyHash: this.keyHashes.depositor,
             beneficiaryKeyHash: this.keyHashes.beneficiary,
-            deadline: futureDeadline,
+            deadline: futureDeadlineMs,
             requiredSignatures: 1,
             authorizedKeys: [this.keyHashes.depositor],
             feePercentage: 0,
@@ -355,6 +358,7 @@ class EscrowCLI {
             ],
             signerSeeds: [credentials.PartyA.seed],
             signerKeyHashes: [this.keyHashes.depositor],
+            validTo: cancelValidTo,
         });
 
         await this.printWalletBalances();

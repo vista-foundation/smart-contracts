@@ -10,7 +10,7 @@ This document explains each scenario executed by `deploy-cli.js`. Every transact
 
 ## 1. Time-Lock Release
 - **Goal**: Demonstrate time-based unlock with beneficiary signature.
-- **Setup**: Party A locks 5 ADA; deadline set to “now + 1 hour”.
+- **Setup**: Party A locks 5 ADA; deadline set to roughly 2 minutes from now.
 - **Unlock Path**: Party B signs the release (with time-based option as fallback).
 - **Expected Result**: 5 ADA transferred to Party B.
 
@@ -28,9 +28,10 @@ This document explains each scenario executed by `deploy-cli.js`. Every transact
 
 ## 4. Depositor Cancel (Before Deadline)
 - **Goal**: Allow depositor to cancel before the deadline.
-- **Setup**: Party A locks 5 ADA; deadline set 24 hours in the future; depositor is the only authorized signer.
-- **Validity Tip**: The CLI sets `validTo` just before the datum deadline so the validator accepts the cancel.
+- **Setup**: Party A locks 5 ADA; deadline set ~5 minutes in the future; depositor is the only authorized signer.
+- **Unlock Path**: Party A submits a cancel redeemer before the deadline.
 - **Expected Result**: 5 ADA returned to Party A; escrow terminates cleanly.
+- **Validity Tip**: The CLI sets `validTo` just before the datum deadline so the validator accepts the cancel.
 
 ## 5. Fee-Based Release
 - **Goal**: Demonstrate configurable fees routed to a service provider.
