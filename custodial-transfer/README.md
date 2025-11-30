@@ -119,6 +119,28 @@ aiken check
 aiken fmt
 ```
 
+## Tested Scenarios
+
+The validator includes comprehensive property-based tests (`custodial-transfer/validators/custodial_transfer.ak`) using Aiken's fuzzing capabilities to ensure correctness and security:
+
+### Success Scenarios
+- **Successful Delivery**: Verifies that when the Custodian signs, assets are correctly transferred to the Receiver.
+- **Withdrawal by Sender**: Confirms that the Sender can reclaim their deposited assets by signing the transaction.
+- **Return by Custodian**: Ensures the Custodian can initiate a return of assets to the Sender.
+- **Return by Receiver**: Verifies that the Receiver can refuse delivery, returning assets to the Sender.
+
+### Failure Scenarios (Security Checks)
+- **Unauthorized Delivery**: Fails if delivery is attempted without the Custodian's signature.
+- **Unauthorized Withdrawal**: Fails if withdrawal is attempted without the Sender's signature.
+- **Unauthorized Return**: Fails if return is attempted without either Receiver or Custodian signature.
+- **Incorrect Amount**: Fails if the output amount doesn't match the input amount (prevents value leakage).
+- **Wrong Recipient**: Fails if funds are sent to the wrong party (e.g., Sender tries to withdraw to Receiver's address).
+- **Continuing Output**: Fails if any value is left in the contract (ensures clean termination).
+- **Edge Cases**:
+  - **Empty Outputs**: Fails if the transaction has no outputs.
+  - **Empty Signatories**: Fails if the transaction has no signatories.
+
+
 ## 📝 Usage Examples
 
 ### Example 1: Digital Asset Sale
