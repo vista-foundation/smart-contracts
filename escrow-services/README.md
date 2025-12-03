@@ -182,9 +182,21 @@ aiken check
 ```
 
 The test suite includes:
-- **Property-based tests**: Fuzz testing with 100 iterations each
-- **Unit tests**: Fixed-value tests for core functionality
-- **Edge case tests**: Empty outputs, continuing outputs, etc.
+
+#### Property-Based Tests (Fuzzing)
+- **Key-Based Release**: Verifies successful release when authorized signatures are present (`test_key_based_release_property`).
+- **Depositor Refund**: Verifies depositor can successfully refund assets (`test_depositor_refund_property`).
+- **Depositor Cancel**: Verifies depositor can successfully cancel before the deadline (`test_depositor_cancel_property`).
+- **Unauthorized Release**: Ensures release fails if required signatures are missing (`test_unauthorized_release_fails_property`).
+- **Unauthorized Cancel**: Ensures cancellation fails if attempted by anyone other than the depositor (`test_unauthorized_cancel_fails_property`).
+
+#### Unit Tests
+- **Simple Release**: Validates basic release flow with fixed test vectors (`test_simple_release_success`).
+- **Simple Cancel**: Validates basic cancellation flow with fixed test vectors (`test_simple_cancel_success`).
+
+#### Edge Case Tests
+- **Empty Outputs**: specific check to ensure validation fails if funds are burnt or not output (`test_empty_outputs_fails`).
+- **Continuing Outputs**: Verifies that the contract correctly prevents "continuing outputs" (sending funds back to the script), enforcing contract termination (`test_continuing_output_fails`).
 
 ### Format Code
 ```bash
