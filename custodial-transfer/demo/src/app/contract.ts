@@ -3,6 +3,68 @@ import { loadLucidModule } from './lucid';
 import { credentials, SENDER_PASSPHRASE, RECEIVER_PASSPHRASE, CUSTODIAN_PASSPHRASE, RECEIVER_ADDRESS } from './credentials';
 import { ContractState } from './state';
 import { ENV } from './env';
+// @ts-ignore - @noble/hashes uses .js exports
+import { blake2b } from '@noble/hashes/blake2.js';
+// @ts-ignore - @noble/hashes uses .js exports
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
+
+/**
+ * Computes the output tag from an OutputReference (txHash + outputIndex)
+ * This must match the on-chain hash_output_reference function exactly.
+ *
+ * The OutputReference is CBOR-encoded as a constructor (tag 121) with two fields:
+ * - transaction_id: ByteArray (32 bytes)
+ * - output_index: Integer
+ *
+ * M-01 FIX: This tag ensures each output can only satisfy one validator execution,
+ * preventing double satisfaction attacks.
+ */
+function computeOutputTag(txHash: string, outputIndex: number): string {
+    // We need to CBOR encode the OutputReference the same way Aiken does
+    // OutputReference is a record with transaction_id and output_index
+    // In CBOR, this is encoded as a constructor (tag 121 for index 0) with an array of fields
+
+    // Convert txHash from hex to bytes
+    const txHashBytes = hexToBytes(txHash);
+
+    // CBOR encode the OutputReference structure
+    // Tag 121 (constructor 0) + array of 2 elements
+    // Element 1: ByteArray (txHash) - major type 2
+    // Element 2: Integer (outputIndex) - major type 0
+
+    const cborParts: number[] = [];
+
+    // Tag 121 for constructor index 0 (0xD8 0x79)
+    cborParts.push(0xD8, 0x79);
+
+    // Array of 2 elements (0x82)
+    cborParts.push(0x82);
+
+    // ByteArray: txHash (32 bytes, so 0x58 0x20 prefix)
+    cborParts.push(0x58, 0x20);
+    for (const byte of txHashBytes) {
+        cborParts.push(byte);
+    }
+
+    // Integer: outputIndex (if small, just the value; if 0, just 0x00)
+    if (outputIndex === 0) {
+        cborParts.push(0x00);
+    } else if (outputIndex < 24) {
+        cborParts.push(outputIndex);
+    } else if (outputIndex < 256) {
+        cborParts.push(0x18, outputIndex);
+    } else {
+        // For larger indices, use 2-byte encoding
+        cborParts.push(0x19, (outputIndex >> 8) & 0xFF, outputIndex & 0xFF);
+    }
+
+    const cborBytes = new Uint8Array(cborParts);
+
+    // Hash with blake2b-256 (same as Aiken's blake2b_256)
+    const hashBytes = blake2b(cborBytes, { dkLen: 32 });
+
+    return bytesToHex(hashBytes);
+}
 
 export class CustodialTransferDemo {
     private lucid: LucidEvolution | null = null;
@@ -177,6 +239,7 @@ export class CustodialTransferDemo {
                         const { validatorToAddress } = await loadLucidModule();
                         this.state.contractAddress = validatorToAddress("Preview", this.validator);
                         console.log('✅ Contract address generated using direct import:', this.state.contractAddress);
+                        console.log('Computed smart contract address:', this.state.contractAddress);
                     } catch (error) {
                         console.error('❌ Failed to generate contract address:', error);
                         console.log('📝 Contract address generation error details:', {
@@ -349,6 +412,7 @@ export class CustodialTransferDemo {
                     const { validatorToAddress } = await loadLucidModule();
                     this.state.contractAddress = validatorToAddress("Preview", this.validator);
                     console.log('✅ Contract address generated using direct import:', this.state.contractAddress);
+                    console.log('Computed smart contract address:', this.state.contractAddress);
                 } catch (error) {
                     console.error('❌ Failed to generate contract address:', error);
                     throw new Error(`Failed to generate contract address: ${error}`);
@@ -461,6 +525,7 @@ export class CustodialTransferDemo {
                     const { validatorToAddress } = await loadLucidModule();
                     this.state.contractAddress = validatorToAddress("Preview", this.validator);
                     console.log('✅ Contract address generated using direct import:', this.state.contractAddress);
+                    console.log('Computed smart contract address:', this.state.contractAddress);
                 } catch (error) {
                     console.error('❌ Failed to generate contract address:', error);
                     throw new Error(`Failed to generate contract address: ${error}`);
@@ -490,21 +555,25 @@ export class CustodialTransferDemo {
             console.log('📄 Redeemer created:', redeemer);
 
             console.log('🔨 Building withdrawal transaction...');
-            
+
             // Use the actual UTxO value, not the stored amount
             const contractValue = contractUtxo.assets.lovelace;
             console.log('💰 Contract UTxO value:', contractValue);
             console.log('💰 Original deposit amount:', this.state.amount);
-            
+
             // Get sender address for receiving funds
             const senderAddress = await this.lucid.wallet().address();
             console.log('👤 Sender address for withdrawal:', senderAddress);
-            
-            // Build transaction - funds go back to sender
+
+            // M-01 FIX: Compute output tag from input's OutputReference
+            const outputTag = computeOutputTag(contractUtxo.txHash, contractUtxo.outputIndex);
+            console.log('🏷️ Output tag computed:', outputTag);
+
+            // Build transaction - funds go back to sender WITH output tag (M-01 fix)
             const tx = await this.lucid
                 .newTx()
                 .collectFrom([contractUtxo], redeemer)
-                .pay.ToAddress(senderAddress, { lovelace: contractValue })
+                .pay.ToAddressWithData(senderAddress, { kind: 'inline', value: outputTag }, { lovelace: contractValue })
                 .attach.SpendingValidator(this.validator)
                 .addSignerKey(this.state.senderKeyHash!)
                 .complete();
@@ -579,6 +648,7 @@ export class CustodialTransferDemo {
                     const { validatorToAddress } = await loadLucidModule();
                     this.state.contractAddress = validatorToAddress("Preview", this.validator);
                     console.log('✅ Contract address generated using direct import:', this.state.contractAddress);
+                    console.log('Computed smart contract address:', this.state.contractAddress);
                 } catch (error) {
                     console.error('❌ Failed to generate contract address:', error);
                     throw new Error(`Failed to generate contract address: ${error}`);
@@ -620,12 +690,17 @@ export class CustodialTransferDemo {
             console.log('💰 Contract UTxO value:', contractValue);
             console.log('💰 Original deposit amount:', this.state.amount);
 
+            // M-01 FIX: Compute output tag from input's OutputReference
+            const outputTag = computeOutputTag(contractUtxo.txHash, contractUtxo.outputIndex);
+            console.log('🏷️ Output tag computed:', outputTag);
+
             // Custodian wallet already selected above for transaction building
             // Only custodian signs to confirm delivery (Entity C confirms delivery to User B)
+            // Output includes tag to prevent double satisfaction (M-01 fix)
             const tx = await this.lucid
                 .newTx()
                 .collectFrom([contractUtxo], redeemer)
-                .pay.ToAddress(RECEIVER_ADDRESS, { lovelace: contractValue })
+                .pay.ToAddressWithData(RECEIVER_ADDRESS, { kind: 'inline', value: outputTag }, { lovelace: contractValue })
                 .attach.SpendingValidator(this.validator)
                 .addSignerKey(this.state.custodianKeyHash!)
                 .complete();
@@ -707,6 +782,7 @@ export class CustodialTransferDemo {
                     const { validatorToAddress } = await loadLucidModule();
                     this.state.contractAddress = validatorToAddress("Preview", this.validator);
                     console.log('✅ Contract address generated using direct import:', this.state.contractAddress);
+                    console.log('Computed smart contract address:', this.state.contractAddress);
                 } catch (error) {
                     console.error('❌ Failed to generate contract address:', error);
                     throw new Error(`Failed to generate contract address: ${error}`);
@@ -747,14 +823,19 @@ export class CustodialTransferDemo {
             console.log('💰 Contract UTxO value:', contractValue);
             console.log('💰 Original deposit amount:', this.state.amount);
             
+            // M-01 FIX: Compute output tag from input's OutputReference
+            const outputTag = computeOutputTag(contractUtxo.txHash, contractUtxo.outputIndex);
+            console.log('🏷️ Output tag computed:', outputTag);
+
             // Receiver wallet already selected above, receiver refuses delivery
             console.log('📦 User B (receiver) will refuse delivery and return funds');
-            
+
             // Build transaction - funds go to sender, receiver must sign (User B refuses)
+            // Output includes tag to prevent double satisfaction (M-01 fix)
             const tx = await this.lucid
                 .newTx()
                 .collectFrom([contractUtxo], redeemer)
-                .pay.ToAddress(senderAddress, { lovelace: contractValue })
+                .pay.ToAddressWithData(senderAddress, { kind: 'inline', value: outputTag }, { lovelace: contractValue })
                 .attach.SpendingValidator(this.validator)
                 .addSignerKey(this.state.receiverKeyHash!)
                 .complete();
