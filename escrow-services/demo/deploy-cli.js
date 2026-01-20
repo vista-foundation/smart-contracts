@@ -27,6 +27,51 @@ const {
     CML,
 } = require('@lucid-evolution/lucid');
 const { walletFromSeed } = require('@lucid-evolution/wallet');
+const { blake2b } = require('@noble/hashes/blake2b');
+
+/**
+ * M-01 Fix: Compute output tag from OutputReference
+ * This creates a unique tag per input to prevent double satisfaction attacks.
+ * The tag is the blake2b-256 hash of the CBOR-encoded OutputReference.
+ *
+ * @param {string} txHash - Transaction hash (64 hex chars)
+ * @param {number} outputIndex - Output index
+ * @returns {string} - Hex-encoded blake2b-256 hash
+ */
+function computeOutputTag(txHash, outputIndex) {
+    // CBOR encode OutputReference: Constr(0, [ByteArray(txHash), Integer(outputIndex)])
+    const txHashBytes = Buffer.from(txHash, 'hex');
+    const cborParts = [];
+
+    // Tag 121 for constructor 0 (D8 79)
+    cborParts.push(0xD8, 0x79);
+
+    // Array of 2 elements (82)
+    cborParts.push(0x82);
+
+    // ByteArray prefix for 32 bytes (58 20)
+    cborParts.push(0x58, 0x20);
+    for (const byte of txHashBytes) {
+        cborParts.push(byte);
+    }
+
+    // Integer encoding for outputIndex
+    if (outputIndex === 0) {
+        cborParts.push(0x00);
+    } else if (outputIndex <= 23) {
+        cborParts.push(outputIndex);
+    } else if (outputIndex <= 255) {
+        cborParts.push(0x18, outputIndex);
+    } else if (outputIndex <= 65535) {
+        cborParts.push(0x19, (outputIndex >> 8) & 0xFF, outputIndex & 0xFF);
+    } else {
+        throw new Error(`Output index too large: ${outputIndex}`);
+    }
+
+    const cborBytes = Buffer.from(cborParts);
+    const hashBytes = blake2b(cborBytes, { dkLen: 32 });
+    return Buffer.from(hashBytes).toString('hex');
+}
 
 const WAIT_MS = 45_000;
 const ADA = 1_000_000n;
@@ -509,12 +554,29 @@ class EscrowCLI {
 
         const redeemer = this.buildRedeemer(redeemerTag);
 
+        // M-01 Fix: Compute output tag from the input being spent
+        const outputTag = computeOutputTag(utxo.txHash, utxo.outputIndex);
+        console.log(`      Output tag: ${outputTag}`);
+
         let txBuilder = this.lucid
             .newTx()
             .collectFrom([utxo], redeemer);
 
-        for (const payment of payments) {
-            txBuilder = txBuilder.pay.ToAddress(payment.address, payment.assets);
+        // M-01 Fix: Use ToAddressWithData with output tag for primary recipient
+        // Only the first payment (primary recipient) needs the tag
+        for (let i = 0; i < payments.length; i++) {
+            const payment = payments[i];
+            if (i === 0) {
+                // Primary payment - include output tag as inline datum
+                txBuilder = txBuilder.pay.ToAddressWithData(
+                    payment.address,
+                    { kind: 'inline', value: outputTag },
+                    payment.assets,
+                );
+            } else {
+                // Secondary payments (fees) - no tag required
+                txBuilder = txBuilder.pay.ToAddress(payment.address, payment.assets);
+            }
         }
 
         txBuilder = txBuilder.attach.SpendingValidator(this.validator);
@@ -598,7 +660,7 @@ async function main() {
     try {
         const cli = new EscrowCLI();
         await cli.initialize();
-        await cli.runDemo();
+        // await cli.runDemo();
     } catch (error) {
         console.error('\n❌ CLI execution failed:');
         console.error(error);

@@ -11,6 +11,7 @@
   "dependencies": {
     "@lucid-evolution/lucid": "^0.4.29",
     "@lucid-evolution/wallet": "^0.1.72",
+    "@noble/hashes": "^2.0.1",
     "dotenv": "^17.2.3"
   }
 }
