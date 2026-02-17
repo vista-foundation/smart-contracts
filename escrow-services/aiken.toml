@@ -1,0 +1,23 @@
+name = "aiken-lang/escrow-services"
+version = "0.0.0"
+compiler = "v1.1.17"
+plutus = "v3"
+license = "Apache-2.0"
+description = "Aiken contracts for project 'aiken-lang/escrow-services'"
+
+[repository]
+user = "aiken-lang"
+project = "escrow-services"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v2.2.0"
+source = "github"
+
+[[dependencies]]
+name = "aiken-lang/fuzz"
+version = "v2.1.1"
+source = "github"
+
+[config]

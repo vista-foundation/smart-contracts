@@ -1,0 +1,193 @@
+{
+  "preamble": {
+    "title": "agrow/permissioned_mint",
+    "description": "Aiken contracts for project 'agrow/permissioned_mint'",
+    "version": "0.0.0",
+    "plutusVersion": "v2",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.0.28-alpha+c9a1519"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "permissioned_mint.mint",
+      "redeemer": {
+        "title": "rdmr",
+        "schema": {
+          "$ref": "#/definitions/permissioned_mint~1MintRedeemer"
+        }
+      },
+      "parameters": [
+        {
+          "title": "permissioned_credential",
+          "schema": {
+            "$ref": "#/definitions/aiken~1transaction~1credential~1Referenced$aiken~1transaction~1credential~1Credential"
+          }
+        },
+        {
+          "title": "require_for_burn",
+          "schema": {
+            "$ref": "#/definitions/Bool"
+          }
+        }
+      ],
+      "compiledCode": "5902e101000032323232323232223222532333007300130083754004264a66601064646464646464a66601e601260206ea80184c8c94ccc044c02cc048dd500689998008080020018a999808991919299980a19b8748008c054dd50008a5113233001001300337566034602e6ea8008894ccc064004528899299980b99b88375a603800490000998018018008a50301c001323300100100922533301800114c103d87a80001323232325333019337220140042a66603266e3c0280084cdd2a40006603a6e980052f5c02980103d87a8000133006006003375660340066eb8c060008c070008c068004c004004894ccc05800452f5c026602e602a60300026600400460320022a66602266602201c941288a51133300101000400314a044464a666028601c602a6ea80104c94ccc054c03cc058dd5000899191980080080291299980d8008a5013253330193371e6eb8c078008010528899801801800980f0009bae301a301737540020046032602c6ea80100044c8cc00400400c894ccc060004528099299980b19baf0063017301b00214a226600600600260360026eb8c050c044dd50030b1bac30133014301400237566024002602460240046eacc040004c040c040c040c040c030dd518078011807180780098051baa00314984d958c94ccc020c00800454ccc02cc028dd50020a4c2c2a66601066e1d20020011533300b300a37540082930b0b18041baa0031322533300932332232533300d3007300e3754018264a66601c6010601e6ea80044c8c8cc004004014894ccc050004528099299980919b8f375c602e00400829444cc00c00c004c05c004dd7180998081baa0010023012300f37540180022646600200200644a66602200229404c94ccc03ccdd78071808180a0010a5113300300300130140013756601e0026eb0c03cc040c040004c03cc03cc03cc03cc03cc03cc02cdd5180718059baa00114984d958c030c024dd50011b8748000cdc42400060086ea80055cd2ab9d5573caae7d5d02ba15745",
+      "hash": "07f14c2c938bb4c10304b5f79d9bf2721b52588a3583f02879c71566"
+    },
+    {
+      "title": "permissioned_mint.update",
+      "datum": {
+        "title": "_datum",
+        "schema": {
+          "$ref": "#/definitions/Data"
+        }
+      },
+      "redeemer": {
+        "title": "_rdmr",
+        "schema": {
+          "$ref": "#/definitions/RedeemerWrapper$Data"
+        }
+      },
+      "parameters": [
+        {
+          "title": "permissioned_credential",
+          "schema": {
+            "$ref": "#/definitions/aiken~1transaction~1credential~1Referenced$aiken~1transaction~1credential~1Credential"
+          }
+        },
+        {
+          "title": "require_for_burn",
+          "schema": {
+            "$ref": "#/definitions/Bool"
+          }
+        }
+      ],
+      "compiledCode": "5902e101000032323232323232223222532333007300130083754004264a66601064646464646464a66601e601260206ea80184c8c94ccc044c02cc048dd500689998008080020018a999808991919299980a19b8748008c054dd50008a5113233001001300337566034602e6ea8008894ccc064004528899299980b99b88375a603800490000998018018008a50301c001323300100100922533301800114c103d87a80001323232325333019337220140042a66603266e3c0280084cdd2a40006603a6e980052f5c02980103d87a8000133006006003375660340066eb8c060008c070008c068004c004004894ccc05800452f5c026602e602a60300026600400460320022a66602266602201c941288a51133300101000400314a044464a666028601c602a6ea80104c94ccc054c03cc058dd5000899191980080080291299980d8008a5013253330193371e6eb8c078008010528899801801800980f0009bae301a301737540020046032602c6ea80100044c8cc00400400c894ccc060004528099299980b19baf0063017301b00214a226600600600260360026eb8c050c044dd50030b1bac30133014301400237566024002602460240046eacc040004c040c040c040c040c030dd518078011807180780098051baa00314984d958c94ccc020c00800454ccc02cc028dd50020a4c2c2a66601066e1d20020011533300b300a37540082930b0b18041baa0031322533300932332232533300d3007300e3754018264a66601c6010601e6ea80044c8c8cc004004014894ccc050004528099299980919b8f375c602e00400829444cc00c00c004c05c004dd7180998081baa0010023012300f37540180022646600200200644a66602200229404c94ccc03ccdd78071808180a0010a5113300300300130140013756601e0026eb0c03cc040c040004c03cc03cc03cc03cc03cc03cc02cdd5180718059baa00114984d958c030c024dd50011b8748000cdc42400060086ea80055cd2ab9d5573caae7d5d02ba15745",
+      "hash": "07f14c2c938bb4c10304b5f79d9bf2721b52588a3583f02879c71566"
+    }
+  ],
+  "definitions": {
+    "Bool": {
+      "title": "Bool",
+      "anyOf": [
+        {
+          "title": "False",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "True",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Data": {
+      "title": "Data",
+      "description": "Any Plutus data."
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "RedeemerWrapper$Data": {
+      "title": "Wrapped Redeemer",
+      "description": "A redeemer wrapped in an extra constructor to make multi-validator detection possible on-chain.",
+      "anyOf": [
+        {
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/Data"
+            }
+          ]
+        }
+      ]
+    },
+    "aiken/transaction/credential/Credential": {
+      "title": "Credential",
+      "description": "A general structure for representing an on-chain `Credential`.\n\n Credentials are always one of two kinds: a direct public/private key\n pair, or a script (native or Plutus).",
+      "anyOf": [
+        {
+          "title": "VerificationKeyCredential",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        },
+        {
+          "title": "ScriptCredential",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        }
+      ]
+    },
+    "aiken/transaction/credential/Referenced$aiken/transaction/credential/Credential": {
+      "title": "Referenced",
+      "description": "Represent a type of object that can be represented either inline (by hash)\n or via a reference (i.e. a pointer to an on-chain location).\n\n This is mainly use for capturing pointers to a stake credential\n registration certificate in the case of so-called pointer addresses.",
+      "anyOf": [
+        {
+          "title": "Inline",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1transaction~1credential~1Credential"
+            }
+          ]
+        },
+        {
+          "title": "Pointer",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "title": "slot_number",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "transaction_index",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "certificate_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "permissioned_mint/MintRedeemer": {
+      "title": "MintRedeemer",
+      "anyOf": [
+        {
+          "title": "Minting",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "Burning",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    }
+  }
+}
